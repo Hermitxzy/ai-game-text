@@ -297,3 +297,28 @@ LOCAL_CFLAGS := -O3 -march=armv8-a
 ---
 
 **祝你玩得愉快！**
+
+## 下载 APK
+
+### 方式 1: GitHub Release（推荐）
+
+访问 Releases 页面下载编译好的 APK：
+**https://github.com/Hermitxzy/ai-game-text/releases**
+
+### 方式 2: GitHub Actions
+
+1. 访问 Actions 页面：**https://github.com/Hermitxzy/ai-game-text/actions**
+2. 点击最近一次的编译工作流
+3. 向下滚动找到 Artifacts
+4. 下载 `app-debug.apk`
+
+### 方式 3: 本地编译
+
+```shell
+export ANDROID_HOME=/opt/android-sdk
+export ANDROID_NDK_HOME=/opt/android-sdk/ndk/25.2.9519653
+cd adventure-game-android
+./gradlew assembleDebug
+```
+
+APK 输出位置：`app/build/outputs/apk/debug/app-debug.apk`
