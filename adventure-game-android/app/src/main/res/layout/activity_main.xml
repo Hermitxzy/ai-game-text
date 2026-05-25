@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#1a1a2e">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="C 语言文字冒险游戏"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#ffffff"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="正在初始化..."
+        android:textSize="14sp"
+        android:textColor="#a0a0a0"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="模型文件"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#ffffff"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/selectModelBtn"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="选择 GGUF 模型"
+            android:backgroundTint="#4a4a6a" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/modelPathText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="未选择模型"
+        android:textSize="12sp"
+        android:textColor="#808080"
+        android:ellipsize="middle"
+        android:singleLine="true"
+        android:layout_marginBottom="24dp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#4a4a6a"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/startGameBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="开始游戏"
+        android:textSize="18sp"
+        android:padding="16dp"
+        android:backgroundTint="#00aa00" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="提示：也可以将 .gguf 模型文件放入 内部存储/Android/data/com.adventure.game/files/models/ 目录，启动时会自动检测"
+        android:textSize="12sp"
+        android:textColor="#606060"
+        android:layout_marginTop="16dp" />
+
+</LinearLayout>

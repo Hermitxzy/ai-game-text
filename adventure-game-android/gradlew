@@ -1,0 +1,53 @@
+#!/bin/bash
+# Gradle wrapper script for Android build
+
+# 检测 ANDROID_HOME
+if [ -z "$ANDROID_HOME" ]; then
+    echo "错误：未设置 ANDROID_HOME"
+    echo ""
+    echo "请设置环境变量:"
+    echo "  export ANDROID_HOME=\$HOME/Android/Sdk"
+    echo ""
+    echo "或安装 Android Studio"
+    exit 1
+fi
+
+# 检测 NDK
+if [ -z "$ANDROID_NDK_HOME" ]; then
+    if [ -d "$ANDROID_HOME/ndk" ]; then
+        export ANDROID_NDK_HOME=$(ls -d $ANDROID_HOME/ndk/* | head -1)
+    else
+        echo "错误：未找到 NDK"
+        echo "请在 Android Studio 中安装 NDK"
+        exit 1
+    fi
+    echo "使用 NDK: $ANDROID_NDK_HOME"
+fi
+
+# 下载 Gradle (如果不存在)
+GRADLE_VERSION="8.0"
+GRADLE_HOME="$HOME/.gradle/wrapper/dists/gradle-$GRADLE_VERSION-bin"
+
+if [ ! -d "$GRADLE_HOME" ]; then
+    echo "下载 Gradle $GRADLE_VERSION..."
+    GRADLE_ZIP="gradle-$GRADLE_VERSION-bin.zip"
+    
+    if command -v wget &> /dev/null; then
+        wget -q "https://services.gradle.org/distributions/$GRADLE_ZIP" -O "/tmp/$GRADLE_ZIP"
+    elif command -v curl &> /dev/null; then
+        curl -sL "https://services.gradle.org/distributions/$GRADLE_ZIP" -o "/tmp/$GRADLE_ZIP"
+    else
+        echo "请安装 wget 或 curl"
+        exit 1
+    fi
+    
+    mkdir -p "$GRADLE_HOME"
+    unzip -q "/tmp/$GRADLE_ZIP" -d "$GRADLE_HOME"
+    rm "/tmp/$GRADLE_ZIP"
+fi
+
+GRADLE_BIN=$(find "$GRADLE_HOME" -name "gradle" -type f | head -1)
+
+# 执行 Gradle
+cd "$(dirname "$0")"
+exec "$GRADLE_BIN" "$@"

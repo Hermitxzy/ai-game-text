@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#1a1a2e">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="文字冒险游戏"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#ffffff"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="#2a2a4e" />
+
+    <ScrollView
+        android:id="@+id/scrollView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/gameOutput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="游戏加载中...\n\n"
+            android:textSize="14sp"
+            android:textColor="#ffffff"
+            android:fontFamily="monospace"
+            android:lineSpacingExtra="4dp" />
+
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:background="#2a2a4e">
+
+        <EditText
+            android:id="@+id/gameInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="输入命令..."
+            android:textColor="#ffffff"
+            android:textColorHint="#808080"
+            android:backgroundTint="#4a4a6a"
+            android:imeOptions="actionSend"
+            android:singleLine="true"
+            android:layout_marginEnd="8dp" />
+
+        <Button
+            android:id="@+id/sendBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="发送"
+            android:backgroundTint="#4a4a6a" />
+
+    </LinearLayout>
+
+</LinearLayout>
