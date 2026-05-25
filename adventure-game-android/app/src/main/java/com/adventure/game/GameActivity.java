@@ -35,6 +35,9 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         
         String modelPath = getIntent().getStringExtra("model_path");
         initGame(modelPath);
+        
+        // 显示初始消息
+        onGameOutput("游戏已加载！输入 'help' 查看命令帮助\n");
     }
     
     private void initViews() {
