@@ -140,23 +140,28 @@ public class MainActivity extends AppCompatActivity {
     
     private void handleSelectedFile(Uri uri) {
         try {
-            // 复制文件到应用目录
             String fileName = getFileName(uri);
-            if (!fileName.endsWith(".gguf")) {
+            if (fileName == null || !fileName.endsWith(".gguf")) {
                 Toast.makeText(this, "请选择 GGUF 格式的模型文件", Toast.LENGTH_SHORT).show();
                 return;
             }
             
-            File destFile = new File(getExternalFilesDir(null), "models/" + fileName);
-            destFile.getParentFile().mkdirs();
+            File modelsDir = new File(getExternalFilesDir(null), "models");
+            if (!modelsDir.exists()) {
+                modelsDir.mkdirs();
+            }
+            
+            File destFile = new File(modelsDir, fileName);
             
             InputStream input = getContentResolver().openInputStream(uri);
             FileOutputStream output = new FileOutputStream(destFile);
             
             byte[] buffer = new byte[8192];
             int bytesRead;
+            long totalBytes = 0;
             while ((bytesRead = input.read(buffer)) != -1) {
                 output.write(buffer, 0, bytesRead);
+                totalBytes += bytesRead;
             }
             
             input.close();
@@ -164,11 +169,12 @@ public class MainActivity extends AppCompatActivity {
             
             selectedModelPath = destFile.getAbsolutePath();
             modelPathText.setText("已选择：" + selectedModelPath);
-            statusText.setText("模型已准备好，可以开始游戏");
-            Toast.makeText(this, "模型文件已复制", Toast.LENGTH_SHORT).show();
+            statusText.setText("模型已准备好 (" + (totalBytes / 1024 / 1024) + " MB)");
+            Toast.makeText(this, "模型已复制：" + (totalBytes / 1024 / 1024) + " MB", Toast.LENGTH_LONG).show();
             
         } catch (Exception e) {
             Toast.makeText(this, "选择文件失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
         }
     }
     
