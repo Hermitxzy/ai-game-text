@@ -20,8 +20,9 @@ public class ApiClient {
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setDoOutput(true);
             
+            // 使用 chat 格式，避免 prompt 被原样返回
             String jsonBody = String.format(
-                "{\"prompt\":\"%s\",\"n_predict\":%d,\"temperature\":0.7,\"stop\":[\"User:\",\"\\n\\n\"],\"stream\":false}",
+                "{\"prompt\":\"USER: %s\\nASSISTANT:\",\"n_predict\":%d,\"temperature\":0.7,\"stop\":[\"USER:\",\"\\n\\n\"],\"stream\":false}",
                 escapeJson(prompt),
                 maxTokens
             );
@@ -43,8 +44,12 @@ public class ApiClient {
             }
             br.close();
             
-            if (status >= 200 && status < 300) return parseResponse(response.toString());
-            return "API Error " + status;
+            if (status >= 200 && status < 300) {
+                String parsed = parseResponse(response.toString());
+                // 清理可能的前缀
+                return parsed.replaceFirst("^\\s*", "");
+            }
+            return "API Error " + status + ": " + response.toString();
             
         } catch (Exception e) {
             return "Connection failed: " + e.getMessage();
