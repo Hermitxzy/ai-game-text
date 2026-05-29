@@ -15,6 +15,7 @@ typedef struct Scene {
     char name[64];
     char description[512];
     char connections[256];  // 可到达的场景列表
+    char npcs[256];         // 当前场景的 NPC
 } Scene;
 
 // 简化版任务定义
@@ -61,16 +62,19 @@ JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_initGame(
     strcpy(g_game.scenes[0].name, "新手村广场");
     strcpy(g_game.scenes[0].description, "你站在一个宁静的小村庄广场中央。四周是古朴的木屋，村民们忙碌地走动。北方是铁匠铺，东方有通往森林的小路。");
     strcpy(g_game.scenes[0].connections, "铁匠铺，迷雾森林入口");
+    strcpy(g_game.scenes[0].npcs, "村长，村民");
     
     strcpy(g_game.scenes[1].id, "blacksmith");
     strcpy(g_game.scenes[1].name, "铁匠铺");
     strcpy(g_game.scenes[1].description, "铁匠铺内炉火熊熊。墙上挂满了各式武器和护甲。");
     strcpy(g_game.scenes[1].connections, "新手村广场");
+    strcpy(g_game.scenes[1].npcs, "铁匠老王");
     
     strcpy(g_game.scenes[2].id, "forest");
     strcpy(g_game.scenes[2].name, "迷雾森林入口");
     strcpy(g_game.scenes[2].description, "茂密的树木遮天蔽日，薄雾在林间飘荡。一条小径通向森林深处。");
     strcpy(g_game.scenes[2].connections, "新手村广场");
+    strcpy(g_game.scenes[2].npcs, "");
     
     g_game.scene_count = 3;
     g_game.current_scene = &g_game.scenes[0];
@@ -118,18 +122,25 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             "  exit - 退出");
     }
     else if (strcmp(inputText, "map") == 0 || strcmp(inputText, "m") == 0) {
-        strcpy(response, "=== 世界地图 ===\n\n");
+        char map_text[4096] = "=== 世界地图 ===\n\n";
         for (int i = 0; i < g_game.scene_count; i++) {
             Scene *s = &g_game.scenes[i];
-            strcat(response, s->name);
+            char line[512];
+            snprintf(line, sizeof(line), "%s", s->name);
             if (strcmp(g_game.current_scene->id, s->id) == 0) {
-                strcat(response, " [你在这里]");
+                strcat(line, " [你在这里]");
             }
-            strcat(response, "\n  可前往：");
-            strcat(response, s->connections);
-            strcat(response, "\n\n");
+            strcat(map_text, line);
+            strcat(map_text, "\n  可前往：");
+            strcat(map_text, s->connections);
+            if (strlen(s->npcs) > 0) {
+                strcat(map_text, "\n  NPC: ");
+                strcat(map_text, s->npcs);
+            }
+            strcat(map_text, "\n\n");
         }
-        strcat(response, "■ 图例：[你在这里] = 当前位置");
+        strcat(map_text, "■ 图例：[你在这里] = 当前位置");
+        strcpy(response, map_text);
     }
     else if (strcmp(inputText, "look") == 0 || strcmp(inputText, "l") == 0) {
         snprintf(response, sizeof(response), "%s", g_game.current_scene->description);
