@@ -14,6 +14,7 @@ typedef struct Scene {
     char id[64];
     char name[64];
     char description[512];
+    char connections[256];  // 可到达的场景列表
 } Scene;
 
 // 简化版任务定义
@@ -59,14 +60,17 @@ JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_initGame(
     strcpy(g_game.scenes[0].id, "village");
     strcpy(g_game.scenes[0].name, "新手村广场");
     strcpy(g_game.scenes[0].description, "你站在一个宁静的小村庄广场中央。四周是古朴的木屋，村民们忙碌地走动。北方是铁匠铺，东方有通往森林的小路。");
+    strcpy(g_game.scenes[0].connections, "铁匠铺，迷雾森林入口");
     
     strcpy(g_game.scenes[1].id, "blacksmith");
     strcpy(g_game.scenes[1].name, "铁匠铺");
     strcpy(g_game.scenes[1].description, "铁匠铺内炉火熊熊。墙上挂满了各式武器和护甲。");
+    strcpy(g_game.scenes[1].connections, "新手村广场");
     
     strcpy(g_game.scenes[2].id, "forest");
     strcpy(g_game.scenes[2].name, "迷雾森林入口");
     strcpy(g_game.scenes[2].description, "茂密的树木遮天蔽日，薄雾在林间飘荡。一条小径通向森林深处。");
+    strcpy(g_game.scenes[2].connections, "新手村广场");
     
     g_game.scene_count = 3;
     g_game.current_scene = &g_game.scenes[0];
@@ -104,6 +108,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
         strcpy(response, 
             "命令帮助:\n"
             "  look - 查看当前场景\n"
+            "  map - 查看完整地图\n"
             "  go [地点] - 移动\n"
             "  inventory - 查看背包\n"
             "  take [物品] - 拾取物品\n"
@@ -111,6 +116,20 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             "  quest - 查看任务\n"
             "  ask [问题] - AI 对话（需要 API 服务器）\n"
             "  exit - 退出");
+    }
+    else if (strcmp(inputText, "map") == 0 || strcmp(inputText, "m") == 0) {
+        strcpy(response, "=== 世界地图 ===\n\n");
+        for (int i = 0; i < g_game.scene_count; i++) {
+            Scene *s = &g_game.scenes[i];
+            strcat(response, s->name);
+            if (strcmp(g_game.current_scene->id, s->id) == 0) {
+                strcat(response, " [你在这里]");
+            }
+            strcat(response, "\n  可前往：");
+            strcat(response, s->connections);
+            strcat(response, "\n\n");
+        }
+        strcat(response, "■ 图例：[你在这里] = 当前位置");
     }
     else if (strcmp(inputText, "look") == 0 || strcmp(inputText, "l") == 0) {
         snprintf(response, sizeof(response), "%s", g_game.current_scene->description);
