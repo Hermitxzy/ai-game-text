@@ -215,7 +215,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
         
         if (strlen(g_game.current_scene->npcs) > 0) {
             char *npc_list = strdup(g_game.current_scene->npcs);
-            char *npc = strtok(npc_list, ",");
+            char *npc = strtok(npc_list, "，");
             while (npc != NULL) {
                 char trimmed[64];
                 int len = strlen(npc);
@@ -232,7 +232,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
                     found = 1;
                     break;
                 }
-                npc = strtok(NULL, ",");
+                npc = strtok(NULL, "，");
             }
             free(npc_list);
         }
