@@ -194,8 +194,27 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
         g_game.running = 0;
         strcpy(response, "游戏结束，再见！");
     }
-    else if (strcmp(inputText, "talk 铁匠") == 0 || strcmp(inputText, "talk blacksmith") == 0) {
-        strcpy(response, "铁匠老王：欢迎来到这里，冒险者！需要武器或护甲吗？");
+    else if (strncmp(inputText, "talk ", 5) == 0) {
+        const char *npc_name = inputText + 5;
+        int found = 0;
+        if (strlen(g_game.current_scene->npcs) > 0) {
+            if (strstr(g_game.current_scene->npcs, npc_name) != NULL) {
+                found = 1;
+            }
+        }
+        if (found) {
+            if (strcmp(npc_name, "铁匠") == 0 || strcmp(npc_name, "铁匠老王") == 0 || strcmp(npc_name, "blacksmith") == 0) {
+                strcpy(response, "铁匠老王：欢迎来到这里，冒险者！需要武器或护甲吗？");
+            } else if (strcmp(npc_name, "村长") == 0 || strcmp(npc_name, "village") == 0) {
+                strcpy(response, "村长：欢迎你，年轻的冒险者！村庄最近的哥布林越来越多，你能帮帮我们吗？");
+            } else if (strcmp(npc_name, "村民") == 0 || strcmp(npc_name, "villager") == 0) {
+                strcpy(response, "村民：今天天气真好，适合出门冒险！");
+            } else {
+                snprintf(response, sizeof(response), "%s：你好，冒险者！", npc_name);
+            }
+        } else {
+            snprintf(response, sizeof(response), "这里没有 %s。\n使用 'map' 查看 NPC 位置。", npc_name);
+        }
     }
     else {
         snprintf(response, sizeof(response), "未知命令：%s\n输入 'help' 查看帮助。", inputText);
