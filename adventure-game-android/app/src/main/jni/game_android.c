@@ -286,3 +286,52 @@ JNIEXPORT jint JNICALL Java_com_adventure_game_GameActivity_getGold(
     if (!g_initialized) return 0;
     return g_game.inventory.gold;
 }
+
+JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getAvailableCommands(
+    JNIEnv *env, jobject thiz) {
+    (void)env; (void)thiz;
+    if (!g_initialized) return (*env)->NewStringUTF(env, "");
+    
+    char commands[1024] = "";
+    strcat(commands, "look");
+    strcat(commands, "|map");
+    strcat(commands, "|inventory");
+    strcat(commands, "|quest");
+    strcat(commands, "|go");
+    strcat(commands, "|talk");
+    
+    return (*env)->NewStringUTF(env, commands);
+}
+
+JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets(
+    JNIEnv *env, jobject thiz, jstring command) {
+    (void)env; (void)thiz;
+    if (!g_initialized) return (*env)->NewStringUTF(env, "");
+    
+    const char *cmd = (*env)->GetStringUTFChars(env, command, NULL);
+    char targets[1024] = "";
+    
+    if (strcmp(cmd, "go") == 0) {
+        for (int i = 0; i < g_game.scene_count; i++) {
+            if (i > 0) strcat(targets, "|");
+            strcat(targets, g_game.scenes[i].name);
+        }
+    }
+    else if (strcmp(cmd, "talk") == 0) {
+        if (strlen(g_game.current_scene->npcs) > 0) {
+            char *npc_list = strdup(g_game.current_scene->npcs);
+            char *npc = strtok(npc_list, ",");
+            int first = 1;
+            while (npc != NULL) {
+                if (!first) strcat(targets, "|");
+                strcat(targets, npc);
+                first = 0;
+                npc = strtok(NULL, ",");
+            }
+            free(npc_list);
+        }
+    }
+    
+    (*env)->ReleaseStringUTFChars(env, command, cmd);
+    return (*env)->NewStringUTF(env, targets);
+}

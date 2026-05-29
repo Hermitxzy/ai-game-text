@@ -8,6 +8,8 @@ import android.text.method.ScrollingMovementMethod;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -25,9 +27,18 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     private EditText inputText;
     private Button sendBtn;
     private ScrollView scrollView;
+    private Button prevBtn;
+    private Button nextBtn;
+    private TextView commandText;
+    private LinearLayout targetContainer;
     
     private Handler handler = new Handler(Looper.getMainLooper());
     private boolean apiAvailable = false;
+    
+    private String[] availableCommands = {};
+    private int currentCommandIndex = -1;
+    private String[] availableTargets = {};
+    private int currentTargetIndex = -1;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +52,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         }
         
         initViews();
+        loadAvailableCommands();
         
         String modelPath = getIntent().getStringExtra("model_path");
         boolean gameInit = false;
@@ -77,7 +89,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 
                 if (finalGameInit) {
-                    sb.append("\n游戏已加载！输入 'help' 查看命令帮助\n");
+                    sb.append("\n游戏已加载！使用 ← → 按钮或输入命令\n");
                 }
                 
                 onGameOutput(sb.toString());
@@ -90,19 +102,124 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         inputText = findViewById(R.id.gameInput);
         sendBtn = findViewById(R.id.sendBtn);
         scrollView = findViewById(R.id.scrollView);
+        prevBtn = findViewById(R.id.prevBtn);
+        nextBtn = findViewById(R.id.nextBtn);
+        commandText = findViewById(R.id.commandText);
+        targetContainer = findViewById(R.id.targetContainer);
         
         outputText.setMovementMethod(new ScrollingMovementMethod());
         sendBtn.setOnClickListener(this);
+        prevBtn.setOnClickListener(this);
+        nextBtn.setOnClickListener(this);
         
         inputText.setOnEditorActionListener((v, actionId, event) -> {
             sendMessage();
             return true;
         });
+        
+        updateCommandText();
+        updateTargetButtons();
+    }
+    
+    private void loadAvailableCommands() {
+        String commands = getAvailableCommands();
+        if (!TextUtils.isEmpty(commands)) {
+            availableCommands = commands.split("\\|");
+            currentCommandIndex = 0;
+            updateCommandText();
+        }
+    }
+    
+    private void updateCommandText() {
+        if (currentCommandIndex >= 0 && currentCommandIndex < availableCommands.length) {
+            commandText.setText(availableCommands[currentCommandIndex]);
+            loadTargetsForCommand(availableCommands[currentCommandIndex]);
+        } else {
+            commandText.setText("命令选择");
+        }
+    }
+    
+    private void loadTargetsForCommand(String command) {
+        availableTargets = new String[0];
+        currentTargetIndex = -1;
+        targetContainer.removeAllViews();
+        
+        if (command.equals("go") || command.equals("talk")) {
+            String targets = getCommandTargets(command);
+            if (!TextUtils.isEmpty(targets)) {
+                availableTargets = targets.split("\\|");
+                currentTargetIndex = 0;
+                updateTargetButtons();
+            }
+        }
+    }
+    
+    private void updateTargetButtons() {
+        targetContainer.removeAllViews();
+        
+        if (availableTargets.length > 0) {
+            for (int i = 0; i < availableTargets.length; i++) {
+                final int index = i;
+                Button targetBtn = new Button(this);
+                targetBtn.setText(availableTargets[i]);
+                targetBtn.setPadding(16, 8, 16, 8);
+                targetBtn.setBackgroundColor(0xff4a4a6a);
+                targetBtn.setTextColor(0xffffffff);
+                
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+                params.setMargins(4, 0, 4, 0);
+                targetBtn.setLayoutParams(params);
+                
+                targetBtn.setOnClickListener(v -> {
+                    selectTarget(index);
+                });
+                
+                targetContainer.addView(targetBtn);
+            }
+        }
+    }
+    
+    private void selectTarget(int index) {
+        if (index < 0 || index >= availableTargets.length) return;
+        currentTargetIndex = index;
+        
+        String cmd = availableCommands[currentCommandIndex];
+        String target = availableTargets[currentTargetIndex];
+        String fullCommand = cmd + " " + target;
+        
+        inputText.setText(fullCommand);
+        sendMessage();
     }
     
     @Override
     public void onClick(View v) {
-        sendMessage();
+        int id = v.getId();
+        if (id == R.id.sendBtn) {
+            sendMessage();
+        } else if (id == R.id.prevBtn) {
+            switchTarget(-1);
+        } else if (id == R.id.nextBtn) {
+            switchTarget(1);
+        }
+    }
+    
+    private void switchTarget(int direction) {
+        if (availableTargets.length > 1) {
+            currentTargetIndex += direction;
+            if (currentTargetIndex < 0) currentTargetIndex = availableTargets.length - 1;
+            if (currentTargetIndex >= availableTargets.length) currentTargetIndex = 0;
+            
+            String cmd = availableCommands[currentCommandIndex];
+            String target = availableTargets[currentTargetIndex];
+            inputText.setText(cmd + " " + target);
+        } else if (availableCommands.length > 1) {
+            currentCommandIndex += direction;
+            if (currentCommandIndex < 0) currentCommandIndex = availableCommands.length - 1;
+            if (currentCommandIndex >= availableCommands.length) currentCommandIndex = 0;
+            updateCommandText();
+        }
     }
     
     private void sendMessage() {
@@ -119,6 +236,13 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         } else {
             String response = processInput(input);
             onGameOutput(response);
+            
+            if (!availableCommands[0].equals("look")) {
+                String[] temp = availableCommands.clone();
+                availableCommands = new String[]{"look", "map", "inventory", "quest", "go", "talk"};
+                currentCommandIndex = 0;
+            }
+            loadAvailableCommands();
         }
     }
     
@@ -160,4 +284,6 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     private native boolean isGameRunning();
     private native String getCurrentScene();
     private native int getGold();
+    private native String getAvailableCommands();
+    private native String getCommandTargets(String command);
 }
