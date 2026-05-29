@@ -165,29 +165,44 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             strcpy(response, "当前没有任务");
         }
     }
-    else if (strcmp(inputText, "go 铁匠铺") == 0 || strcmp(inputText, "go blacksmith") == 0) {
-        if (strcmp(g_game.current_scene->id, "village") == 0) {
-            g_game.current_scene = &g_game.scenes[1];
-            strcpy(response, "你来到了铁匠铺。\n\n铁匠铺内炉火熊熊。墙上挂满了各式武器和护甲。\n\n可前往：新手村广场");
-        } else {
-            strcpy(response, "无法前往，请先到新手村广场。");
+    else if (strncmp(inputText, "go ", 3) == 0) {
+        const char *dest = inputText + 3;
+        int moved = 0;
+        int found_scene = -1;
+        
+        for (int i = 0; i < g_game.scene_count; i++) {
+            if (strcmp(g_game.scenes[i].name, dest) == 0 || 
+                strcmp(g_game.scenes[i].id, dest) == 0) {
+                found_scene = i;
+                break;
+            }
         }
-    }
-    else if (strcmp(inputText, "go 森林") == 0 || strcmp(inputText, "go forest") == 0) {
-        if (strcmp(g_game.current_scene->id, "village") == 0) {
-            g_game.current_scene = &g_game.scenes[2];
-            strcpy(response, "你来到了迷雾森林入口。\n\n茂密的树木遮天蔽日，薄雾在林间飘荡。\n\n可前往：新手村广场");
+        
+        if (found_scene < 0) {
+            snprintf(response, sizeof(response), "找不到地点：%s\n使用 'map' 查看所有地点。", dest);
         } else {
-            strcpy(response, "无法前往，请先到新手村广场。");
-        }
-    }
-    else if (strcmp(inputText, "go 广场") == 0 || strcmp(inputText, "go village") == 0) {
-        if (strcmp(g_game.current_scene->id, "blacksmith") == 0 || 
-            strcmp(g_game.current_scene->id, "forest") == 0) {
-            g_game.current_scene = &g_game.scenes[0];
-            strcpy(response, "你回到了新手村广场。\n\n你站在一个宁静的小村庄广场中央。四周是古朴的木屋。\n\n可前往：铁匠铺、迷雾森林入口");
-        } else {
-            strcpy(response, "你已经在广场了。");
+            char current_id[64];
+            strcpy(current_id, g_game.current_scene->id);
+            
+            if (strcmp(current_id, "village") == 0 && found_scene == 1) {
+                g_game.current_scene = &g_game.scenes[1];
+                moved = 1;
+            } else if (strcmp(current_id, "village") == 0 && found_scene == 2) {
+                g_game.current_scene = &g_game.scenes[2];
+                moved = 1;
+            } else if ((strcmp(current_id, "blacksmith") == 0 || strcmp(current_id, "forest") == 0) && found_scene == 0) {
+                g_game.current_scene = &g_game.scenes[0];
+                moved = 1;
+            }
+            
+            if (moved) {
+                snprintf(response, sizeof(response), "你来到了 %s。\n\n%s\n\n可前往：%s",
+                         g_game.current_scene->name,
+                         g_game.current_scene->description,
+                         g_game.current_scene->connections);
+            } else {
+                strcpy(response, "无法直接前往，请先查看地图确认路线。");
+            }
         }
     }
     else if (strcmp(inputText, "exit") == 0 || strcmp(inputText, "quit") == 0) {
@@ -197,17 +212,37 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
     else if (strncmp(inputText, "talk ", 5) == 0) {
         const char *npc_name = inputText + 5;
         int found = 0;
+        
         if (strlen(g_game.current_scene->npcs) > 0) {
-            if (strstr(g_game.current_scene->npcs, npc_name) != NULL) {
-                found = 1;
+            char *npc_list = strdup(g_game.current_scene->npcs);
+            char *npc = strtok(npc_list, ",");
+            while (npc != NULL) {
+                char trimmed[64];
+                int len = strlen(npc);
+                int start = 0, end = len - 1;
+                while (start < len && npc[start] == ' ') start++;
+                while (end >= 0 && npc[end] == ' ') end--;
+                int i = 0;
+                for (int j = start; j <= end; j++) {
+                    trimmed[i++] = npc[j];
+                }
+                trimmed[i] = '\0';
+                
+                if (strcmp(trimmed, npc_name) == 0) {
+                    found = 1;
+                    break;
+                }
+                npc = strtok(NULL, ",");
             }
+            free(npc_list);
         }
+        
         if (found) {
-            if (strcmp(npc_name, "铁匠") == 0 || strcmp(npc_name, "铁匠老王") == 0 || strcmp(npc_name, "blacksmith") == 0) {
+            if (strcmp(npc_name, "铁匠老王") == 0) {
                 strcpy(response, "铁匠老王：欢迎来到这里，冒险者！需要武器或护甲吗？");
-            } else if (strcmp(npc_name, "村长") == 0 || strcmp(npc_name, "village") == 0) {
+            } else if (strcmp(npc_name, "村长") == 0) {
                 strcpy(response, "村长：欢迎你，年轻的冒险者！村庄最近的哥布林越来越多，你能帮帮我们吗？");
-            } else if (strcmp(npc_name, "村民") == 0 || strcmp(npc_name, "villager") == 0) {
+            } else if (strcmp(npc_name, "村民") == 0) {
                 strcpy(response, "村民：今天天气真好，适合出门冒险！");
             } else {
                 snprintf(response, sizeof(response), "%s：你好，冒险者！", npc_name);
