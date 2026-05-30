@@ -318,7 +318,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets
         }
     }
     else if (strcmp(cmd, "talk") == 0) {
-        if (strlen(g_game.current_scene->npcs) > 0) {
+        if (g_game.current_scene != NULL && strlen(g_game.current_scene->npcs) > 0) {
             char *npc_list = strdup(g_game.current_scene->npcs);
             char *npc = strtok(npc_list, "，");
             int first = 1;

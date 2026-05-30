@@ -13,3 +13,7 @@
 47	66	1780030670062801910	/workspace/adventure-game-android/app/build/intermediates/cxx/Debug/4p5i2m6d/obj/arm64-v8a/libadventure-game.so	9f7dc520101e4572
 0	672	1780117522714256647	CMakeFiles/adventure-game.dir/game_android.c.o	1c983258982c66b1
 672	697	1780117522742256648	/workspace/adventure-game-android/app/build/intermediates/cxx/Debug/4p5i2m6d/obj/arm64-v8a/libadventure-game.so	9f7dc520101e4572
+0	2	0	clean	2d2f43cf2094d251
+0	3	0	clean	2d2f43cf2094d251
+0	152	1780117810438263507	CMakeFiles/adventure-game.dir/game_android.c.o	1c983258982c66b1
+152	182	1780117810474263508	/workspace/adventure-game-android/app/build/intermediates/cxx/Debug/4p5i2m6d/obj/arm64-v8a/libadventure-game.so	9f7dc520101e4572
