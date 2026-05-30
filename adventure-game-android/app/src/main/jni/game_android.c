@@ -306,6 +306,12 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getAvailableComma
 JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets(
     JNIEnv *env, jobject thiz, jstring command) {
     (void)env; (void)thiz;
+
+    if (g_game.current_scene == NULL) {
+        const char *cmd = (*env)->GetStringUTFChars(env, command, NULL);
+        (*env)->ReleaseStringUTFChars(env, command, cmd);
+        return (*env)->NewStringUTF(env, "");
+    }
     if (!g_initialized) return (*env)->NewStringUTF(env, "");
     
     const char *cmd = (*env)->GetStringUTFChars(env, command, NULL);
