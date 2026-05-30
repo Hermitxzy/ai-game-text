@@ -206,14 +206,17 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     }
     
     private void switchTarget(int direction) {
-        if (availableTargets.length > 1) {
+        if (availableTargets.length > 0) {
             currentTargetIndex += direction;
             if (currentTargetIndex < 0) currentTargetIndex = availableTargets.length - 1;
             if (currentTargetIndex >= availableTargets.length) currentTargetIndex = 0;
             
-            String cmd = availableCommands[currentCommandIndex];
-            String target = availableTargets[currentTargetIndex];
-            inputText.setText(cmd + " " + target);
+            String cmd = availableCommands.length > 0 && currentCommandIndex >= 0 && currentCommandIndex < availableCommands.length 
+                ? availableCommands[currentCommandIndex] : "";
+            if (!cmd.isEmpty()) {
+                String target = availableTargets[currentTargetIndex];
+                inputText.setText(cmd + " " + target);
+            }
         } else if (availableCommands.length > 1) {
             currentCommandIndex += direction;
             if (currentCommandIndex < 0) currentCommandIndex = availableCommands.length - 1;
@@ -236,12 +239,6 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         } else {
             String response = processInput(input);
             onGameOutput(response);
-            
-            if (!availableCommands[0].equals("look")) {
-                String[] temp = availableCommands.clone();
-                availableCommands = new String[]{"look", "map", "inventory", "quest", "go", "talk"};
-                currentCommandIndex = 0;
-            }
             loadAvailableCommands();
         }
     }
