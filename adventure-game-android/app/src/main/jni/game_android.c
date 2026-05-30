@@ -320,13 +320,13 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets
     else if (strcmp(cmd, "talk") == 0) {
         if (strlen(g_game.current_scene->npcs) > 0) {
             char *npc_list = strdup(g_game.current_scene->npcs);
-            char *npc = strtok(npc_list, ",");
+            char *npc = strtok(npc_list, "，");
             int first = 1;
             while (npc != NULL) {
                 if (!first) strcat(targets, "|");
                 strcat(targets, npc);
                 first = 0;
-                npc = strtok(NULL, ",");
+                npc = strtok(NULL, "，");
             }
             free(npc_list);
         }
