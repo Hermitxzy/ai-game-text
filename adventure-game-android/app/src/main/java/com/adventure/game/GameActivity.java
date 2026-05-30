@@ -63,6 +63,8 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         }
         final boolean finalGameInit = gameInit;
         
+        loadAvailableCommands();
+        
         onGameOutput("正在启动...\n检查 API 服务器...\n");
         
         new Thread(() -> {
@@ -116,9 +118,6 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
             sendMessage();
             return true;
         });
-        
-        updateCommandText();
-        updateTargetButtons();
     }
     
     private void loadAvailableCommands() {
@@ -183,14 +182,13 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     
     private void selectTarget(int index) {
         if (index < 0 || index >= availableTargets.length) return;
-        currentTargetIndex = index;
         
-        String cmd = availableCommands[currentCommandIndex];
-        String target = availableTargets[currentTargetIndex];
-        String fullCommand = cmd + " " + target;
-        
-        inputText.setText(fullCommand);
-        sendMessage();
+        String cmd = availableCommands.length > 0 && currentCommandIndex >= 0 && currentCommandIndex < availableCommands.length 
+            ? availableCommands[currentCommandIndex] : "";
+        if (!cmd.isEmpty()) {
+            String target = availableTargets[index];
+            inputText.setText(cmd + " " + target);
+        }
     }
     
     @Override
@@ -206,18 +204,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     }
     
     private void switchTarget(int direction) {
-        if (availableTargets.length > 0) {
-            currentTargetIndex += direction;
-            if (currentTargetIndex < 0) currentTargetIndex = availableTargets.length - 1;
-            if (currentTargetIndex >= availableTargets.length) currentTargetIndex = 0;
-            
-            String cmd = availableCommands.length > 0 && currentCommandIndex >= 0 && currentCommandIndex < availableCommands.length 
-                ? availableCommands[currentCommandIndex] : "";
-            if (!cmd.isEmpty()) {
-                String target = availableTargets[currentTargetIndex];
-                inputText.setText(cmd + " " + target);
-            }
-        } else if (availableCommands.length > 1) {
+        if (availableCommands.length > 1) {
             currentCommandIndex += direction;
             if (currentCommandIndex < 0) currentCommandIndex = availableCommands.length - 1;
             if (currentCommandIndex >= availableCommands.length) currentCommandIndex = 0;
