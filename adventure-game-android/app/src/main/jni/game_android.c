@@ -714,8 +714,8 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
         const char *npc_name = inputText + 5;
         NPC *npc = find_npc_by_name(npc_name);
         
-        // 查找 NPC 并检查是否在场
-        int found = find_npc_in_list(g_game.current_scene->npcs, npc_name);
+        // 检查 NPC 是否在当前场景
+        int found = (npc != NULL && strcmp(npc->location, g_game.current_scene->id) == 0);
         
         if (found && npc != NULL) {
             // 根据关系值调整对话
@@ -784,7 +784,10 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
         if (strlen(npc_name) == 0) {
             strcpy(response, "用法：gift [NPC 名] [物品名]\n例：gift 村长 面包");
         } else {
-            int found = find_npc_in_list(g_game.current_scene->npcs, npc_name);
+            NPC *npc = find_npc_by_name(npc_name);
+            // 检查 NPC 是否在当前场景
+            int found = (npc != NULL && strcmp(npc->location, g_game.current_scene->id) == 0);
+            
             if (!found) {
                 snprintf(response, sizeof(response), "这里没有 %s。", npc_name);
             } else {
@@ -824,7 +827,9 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
     // trade [NPC] 命令
     else if (strncmp(inputText, "trade ", 6) == 0) {
         const char *npc_name = inputText + 6;
-        int found = find_npc_in_list(g_game.current_scene->npcs, npc_name);
+        NPC *npc = find_npc_by_name(npc_name);
+        // 检查 NPC 是否在当前场景
+        int found = (npc != NULL && strcmp(npc->location, g_game.current_scene->id) == 0);
         
         if (!found) {
             snprintf(response, sizeof(response), "这里没有 %s。", npc_name);
@@ -850,7 +855,9 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
     // interact [NPC] 命令
     else if (strncmp(inputText, "interact ", 9) == 0) {
         const char *npc_name = inputText + 9;
-        int found = find_npc_in_list(g_game.current_scene->npcs, npc_name);
+        NPC *npc = find_npc_by_name(npc_name);
+        // 检查 NPC 是否在当前场景
+        int found = (npc != NULL && strcmp(npc->location, g_game.current_scene->id) == 0);
         
         if (!found) {
             snprintf(response, sizeof(response), "这里没有 %s。", npc_name);
