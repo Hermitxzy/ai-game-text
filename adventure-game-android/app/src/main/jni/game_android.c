@@ -2106,6 +2106,32 @@ bool savegame_load(struct GameContext *game, int slot) {
         }
     }
     
+    // 恢复场景的 NPC 列表（根据自定义 NPC 的 location）
+    for (int i = 0; i < game->scene_count; i++) {
+        game->scenes[i].npcs[0] = '\0';  // 清空
+    }
+    for (int i = 0; i < game->npc_count; i++) {
+        NPC *n = &game->npcs[i];
+        if (n->location[0] != '\0' && game->current_scene) {
+            // 查找 NPC 所在的场景
+            for (int j = 0; j < game->scene_count; j++) {
+                if (strcmp(game->scenes[j].name, n->location) == 0 ||
+                    strcmp(game->scenes[j].id, n->location) == 0) {
+                    // 添加到场景 NPC 列表
+                    if (strlen(game->scenes[j].npcs) == 0) {
+                        strcpy(game->scenes[j].npcs, n->name);
+                    } else {
+                        char old_npcs[256];
+                        strcpy(old_npcs, game->scenes[j].npcs);
+                        snprintf(game->scenes[j].npcs, sizeof(game->scenes[j].npcs),
+                                 "%s,%s", old_npcs, n->name);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    
     free(json);
     LOGI("✓ 读档成功：%s", filepath);
     return true;
