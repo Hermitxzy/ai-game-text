@@ -131,10 +131,26 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     
     private void updateCommandText() {
         if (currentCommandIndex >= 0 && currentCommandIndex < availableCommands.length) {
-            commandText.setText(availableCommands[currentCommandIndex]);
-            loadTargetsForCommand(availableCommands[currentCommandIndex]);
+            String cmd = availableCommands[currentCommandIndex];
+            commandText.setText(cmd);
+            
+            // 对于无目标命令，点击直接发送
+            if (!cmd.equals("go") && !cmd.equals("talk")) {
+                commandText.setOnClickListener(v -> {
+                    inputText.setText(cmd);
+                    sendMessage();
+                });
+                commandText.setClickable(true);
+            } else {
+                commandText.setOnClickListener(null);
+                commandText.setClickable(false);
+            }
+            
+            loadTargetsForCommand(cmd);
         } else {
             commandText.setText("命令选择");
+            commandText.setOnClickListener(null);
+            commandText.setClickable(false);
         }
     }
     
