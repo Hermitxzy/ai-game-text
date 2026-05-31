@@ -161,4 +161,41 @@ public class ApiClient {
     public static String sendRequest(String prompt) {
         return generateResponse(prompt, 500);
     }
+    
+    // 带 NPC 上下文的角色扮演对话
+    public static String sendNpcRequest(String npcContext, String conversationHistory, String playerSay) {
+        try {
+            StringBuilder prompt = new StringBuilder();
+            
+            // 系统指令（NPC 人设）
+            prompt.append("你是一个角色扮演游戏中的 NPC。\n\n");
+            prompt.append("【NPC 设定】\n");
+            prompt.append(npcContext);
+            prompt.append("\n\n");
+            
+            // 对话历史
+            if (conversationHistory != null && conversationHistory.length() > 0) {
+                prompt.append("【之前的对话】\n");
+                prompt.append(conversationHistory);
+                prompt.append("\n\n");
+            }
+            
+            // 玩家当前说的话
+            prompt.append("玩家说：");
+            prompt.append(playerSay);
+            prompt.append("\n\n");
+            
+            // 回复要求
+            prompt.append("请以 NPC 的身份回复玩家：\n");
+            prompt.append("要求：\n");
+            prompt.append("1. 保持 NPC 的人设和语气\n");
+            prompt.append("2. 回复简洁（2-3 句话）\n");
+            prompt.append("3. 使用中文回复\n");
+            prompt.append("4. 不要提到你是 AI 或程序\n");
+            
+            return generateResponse(prompt.toString(), 300);
+        } catch (Exception e) {
+            return generateResponse(playerSay, 300);
+        }
+    }
 }

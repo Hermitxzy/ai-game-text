@@ -328,7 +328,18 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         
         if (input.startsWith("ask ")) {
             handleAskCommand(input.substring(4));
-        } else {
+        }
+        else if (input.startsWith("chat ")) {
+            // chat [NPC] [消息] 格式
+            handleChatCommand(input.substring(5));
+        }
+        else if (input.startsWith("talk ")) {
+            // 简单处理 talk 命令，使用固定回复（AI 对话用 chat）
+            String response = processInput(input);
+            onGameOutput(response);
+            loadAvailableTargets();
+        }
+        else {
             String response = processInput(input);
             onGameOutput(response);
             loadAvailableTargets();
@@ -339,6 +350,23 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
     
+    // 处理 chat [NPC] [消息] 命令
+    private void handleChatCommand(String args) {
+        // 解析 NPC 名称和消息
+        int spaceIdx = args.indexOf(' ');
+        String npcName, message;
+        
+        if (spaceIdx > 0) {
+            npcName = args.substring(0, spaceIdx);
+            message = args.substring(spaceIdx + 1);
+        } else {
+            npcName = args;
+            message = "你好";
+        }
+        
+        handleNpcTalk(npcName, message);
+    }
+    
     private void loadAvailableTargets() {
         // 根据当前输入更新目标
         if (!currentCommand.isEmpty()) {
@@ -347,12 +375,25 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     }
     
     private void handleAskCommand(String question) {
+        handleAskCommandInternal(question, null, null);
+    }
+    
+    private void handleAskCommandInternal(String question, String npcName, String npcContext) {
         new Thread(() -> {
             try {
-                String response = ApiClient.sendRequest(question);
+                String response;
+                if (npcName != null && npcContext != null) {
+                    // NPC 角色扮演对话
+                    response = ApiClient.sendNpcRequest(npcContext, "", question);
+                } else {
+                    // 普通 AI 对话
+                    response = ApiClient.sendRequest(question);
+                }
+                
+                final String finalResponse = response;
                 runOnUiThread(() -> {
-                    if (response != null) {
-                        onGameOutput("\nAI: " + response);
+                    if (finalResponse != null) {
+                        onGameOutput("\n" + finalResponse);
                     } else {
                         onGameOutput("\nAI 服务器无响应");
                     }
@@ -360,6 +401,38 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     onGameOutput("\nAI 请求失败：" + e.getMessage());
+                });
+            }
+        }).start();
+    }
+    
+    // 处理 NPC 对话（带 AI）
+    private void handleNpcTalk(String npcName, String playerSay) {
+        new Thread(() -> {
+            try {
+                // 获取 NPC 上下文
+                String npcContext = getNpcContext(npcName);
+                if (npcContext == null || npcContext.isEmpty()) {
+                    runOnUiThread(() -> onGameOutput("\n找不到 NPC：" + npcName));
+                    return;
+                }
+                
+                // 发送 AI 请求
+                String response = ApiClient.sendNpcRequest(npcContext, "", playerSay);
+                
+                final String finalResponse = response;
+                runOnUiThread(() -> {
+                    if (finalResponse != null && !finalResponse.isEmpty()) {
+                        onGameOutput("\n" + npcName + "：" + finalResponse);
+                        // 保存对话记录
+                        saveNpcTalk(npcName, playerSay, finalResponse);
+                    } else {
+                        onGameOutput("\n" + npcName + "：（沉默不语）");
+                    }
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    onGameOutput("\n" + npcName + "：（似乎没听清）");
                 });
             }
         }).start();
@@ -381,4 +454,6 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     public native int getGold();
     public native String getAvailableCommands();
     public native String getCommandTargets(String command);
+    public native String getNpcContext(String npcName);
+    public native void saveNpcTalk(String npcName, String playerSay, String npcReply);
 }

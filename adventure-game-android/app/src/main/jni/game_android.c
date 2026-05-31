@@ -34,6 +34,8 @@ typedef struct MemoryEntry {
     char content[256];    // 记忆内容
     int timestamp;        // 时间戳（游戏内时间）
     int relation_change;  // 关系变化值（+/-）
+    char type[32];        // 记忆类型："talk", "gift", "interact", "trade"
+    char speaker[64];     // 说话者（对话时使用）
 } MemoryEntry;
 
 // NPC 状态
@@ -711,7 +713,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
         }
     }
     
-    // talk 命令
+    // talk 命令 - 查看 NPC 对话提示
     else if (strncmp(inputText, "talk ", 5) == 0) {
         const char *npc_name = inputText + 5;
         NPC *npc = find_npc_by_name(npc_name);
@@ -728,7 +730,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             
             if (strcmp(npc_name, "铁匠老王") == 0) {
                 if (npc->relation >= 70) {
-                    strcpy(response, "铁匠老王：哈哈，老朋友！看到你我就来劲了！今天需要打造什么好东西吗？");
+                    strcpy(response, "铁匠老王：哈哈，老朋友！看到你我就来劲了！需要武器或护甲吗？");
                 } else if (npc->relation >= 40) {
                     strcpy(response, "铁匠老王：欢迎来到这里，冒险者！需要武器或护甲吗？");
                 } else {
@@ -758,9 +760,20 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             snprintf(memory_content, sizeof(memory_content), "%s：与其进行了交谈", npc_name);
             add_player_memory(memory_content, 0);
             
+            // 提示使用 AI 对话
+            strcat(response, "\n\n💡 提示：使用 'chat [NPC] [内容]' 进行 AI 对话");
+            strcat(response, "\n例：chat 村长 最近的哥布林是怎么回事？");
+            
         } else {
             snprintf(response, sizeof(response), "这里没有 %s。\n使用 'map' 查看 NPC 位置。", npc_name);
         }
+    }
+    
+    // chat [NPC] [内容] - AI 对话命令
+    else if (strncmp(inputText, "chat ", 5) == 0) {
+        // 此命令在 Java 层处理（需要调用 AI API）
+        // 返回提示信息
+        strcpy(response, "正在联系 AI 服务器...\n(等待回复)");
     }
     
     // gift [NPC] 礼物 命令
@@ -1344,4 +1357,114 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets
     
     (*env)->ReleaseStringUTFChars(env, command, cmd);
     return (*env)->NewStringUTF(env, targets);
+}
+
+// ============================================================================
+// JNI 函数：获取 NPC 上下文（用于 AI 对话）
+// ============================================================================
+JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getNpcContext(
+    JNIEnv *env, jobject thiz, jstring npcName) {
+    (void)thiz;
+    
+    if (!g_initialized) return (*env)->NewStringUTF(env, "");
+    
+    const char *name = (*env)->GetStringUTFChars(env, npcName, NULL);
+    if (name == NULL) return (*env)->NewStringUTF(env, "");
+    
+    NPC *npc = find_npc_by_name(name);
+    if (npc == NULL) {
+        (*env)->ReleaseStringUTFChars(env, npcName, name);
+        return (*env)->NewStringUTF(env, "");
+    }
+    
+    char context[2048] = "";
+    
+    // 基本信息
+    snprintf(context, sizeof(context),
+        "姓名：%s\n"
+        "职业：%s\n"
+        "描述：%s\n"
+        "外貌：%s，%s，%s\n"
+        "服装：%s\n"
+        "特征：%s\n"
+        "与玩家关系：%d/100 ",
+        npc->name,
+        npc->status.occupation,
+        npc->description,
+        npc->appearance.hair,
+        npc->appearance.eyes,
+        npc->appearance.body,
+        npc->appearance.clothes,
+        npc->appearance.features,
+        npc->relation);
+    
+    // 关系描述
+    if (npc->relation >= 80) strcat(context, "(亲密)\n");
+    else if (npc->relation >= 60) strcat(context, "(友好)\n");
+    else if (npc->relation >= 40) strcat(context, "(普通)\n");
+    else if (npc->relation >= 20) strcat(context, "(冷淡)\n");
+    else strcat(context, "(敌对)\n");
+    
+    // 记忆历史（最近 5 条）
+    if (npc->memory_count > 0) {
+        strcat(context, "\n【记忆】\n");
+        int start = npc->memory_count > 5 ? npc->memory_count - 5 : 0;
+        for (int i = start; i < npc->memory_count; i++) {
+            MemoryEntry *mem = &npc->memories[i];
+            if (strlen(mem->type) > 0 && strcmp(mem->type, "talk") == 0) {
+                char mem_line[300];
+                snprintf(mem_line, sizeof(mem_line),
+                    "- 对话：%s 说\"%s\"\n",
+                    mem->speaker, mem->content);
+                strcat(context, mem_line);
+            }
+        }
+    }
+    
+    (*env)->ReleaseStringUTFChars(env, npcName, name);
+    return (*env)->NewStringUTF(env, context);
+}
+
+// ============================================================================
+// JNI 函数：保存 NPC 对话记忆
+// ============================================================================
+JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
+    JNIEnv *env, jobject thiz, jstring npcName, jstring playerSay, jstring npcReply) {
+    (void)thiz;
+    
+    if (!g_initialized) return;
+    
+    const char *name = (*env)->GetStringUTFChars(env, npcName, NULL);
+    const char *say = (*env)->GetStringUTFChars(env, playerSay, NULL);
+    const char *reply = (*env)->GetStringUTFChars(env, npcReply, NULL);
+    
+    if (name == NULL || say == NULL || reply == NULL) {
+        if (name) (*env)->ReleaseStringUTFChars(env, npcName, name);
+        if (say) (*env)->ReleaseStringUTFChars(env, playerSay, say);
+        if (reply) (*env)->ReleaseStringUTFChars(env, npcReply, reply);
+        return;
+    }
+    
+    NPC *npc = find_npc_by_name(name);
+    if (npc != NULL && npc->memory_count < 20) {
+        // 保存 NPC 记忆
+        MemoryEntry *mem = &npc->memories[npc->memory_count];
+        snprintf(mem->content, sizeof(mem->content), "%s", reply);
+        strncpy(mem->speaker, "玩家", sizeof(mem->speaker) - 1);
+        strncpy(mem->type, "talk", sizeof(mem->type) - 1);
+        mem->timestamp = g_game.game_time + g_game.day * 24;
+        mem->relation_change = 0;
+        npc->memory_count++;
+        
+        // 保存主角记忆
+        char player_mem[256];
+        snprintf(player_mem, sizeof(player_mem), "%s：%s", name, reply);
+        add_player_memory(player_mem, 0);
+        
+        LOGI("保存 NPC 对话记忆：%s", name);
+    }
+    
+    (*env)->ReleaseStringUTFChars(env, npcName, name);
+    (*env)->ReleaseStringUTFChars(env, playerSay, say);
+    (*env)->ReleaseStringUTFChars(env, npcReply, reply);
 }
