@@ -30,13 +30,14 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     
     // 快捷按钮
     private Button btnLook, btnMap, btnInventory, btnStatus;
-    private Button btnQuest, btnTalk, btnMore;
+    private Button btnQuest, btnTalk, btnChat, btnMore;
     
     // 更多命令面板按钮
     private LinearLayout morePanel;
     private Button btnAppearance, btnMemory, btnNpc, btnGo;
     private Button btnGift, btnTrade, btnInteract, btnSetNpc;
     private Button btnCreateNpc, btnRemoveNpc;
+    private Button btnAsk;
     
     // 目标选择
     private LinearLayout targetContainer;
@@ -133,11 +134,10 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         btnSetNpc = findViewById(R.id.btnSetNpc);
         btnCreateNpc = findViewById(R.id.btnCreateNpc);
         btnRemoveNpc = findViewById(R.id.btnRemoveNpc);
-        btnGift = findViewById(R.id.btnGift);
-        btnTrade = findViewById(R.id.btnTrade);
-        btnInteract = findViewById(R.id.btnInteract);
-        btnCreateNpc = findViewById(R.id.btnCreateNpc);
-        btnRemoveNpc = findViewById(R.id.btnRemoveNpc);
+        
+        // AI 功能按钮
+        btnChat = findViewById(R.id.btnChat);
+        btnAsk = findViewById(R.id.btnAsk);
         
         outputText.setMovementMethod(new ScrollingMovementMethod());
         
@@ -160,6 +160,8 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         btnSetNpc.setOnClickListener(this);
         btnCreateNpc.setOnClickListener(this);
         btnRemoveNpc.setOnClickListener(this);
+        btnChat.setOnClickListener(this);
+        btnAsk.setOnClickListener(this);
         
         inputText.setOnEditorActionListener((v, actionId, event) -> {
             sendMessage();
