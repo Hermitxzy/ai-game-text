@@ -64,6 +64,10 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         
         initViews();
         
+        // 设置存档目录
+        String saveDir = new File(getFilesDir(), "saves").getAbsolutePath();
+        setSaveDir(saveDir);
+        
         String modelPath = getIntent().getStringExtra("model_path");
         boolean gameInit = false;
         try {
@@ -489,4 +493,5 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     public native String getCommandTargets(String command);
     public native String getNpcContext(String npcName);
     public native void saveNpcTalk(String npcName, String playerSay, String npcReply);
+    public native void setSaveDir(String dir);
 }

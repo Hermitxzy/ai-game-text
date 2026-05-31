@@ -1596,7 +1596,8 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
 
 
 // 存档目录
-#define SAVE_FILE SAVE_DIR "/save_slot_%d.json"
+static char g_save_dir[512] = "/data/data/com.adventure.game/files/saves";
+static inline const char* get_save_file(int slot) { static char buf[768]; snprintf(buf, sizeof(buf), "%s/save_slot_%d.json", g_save_dir, slot); return buf; }
 
 // 转义 JSON 字符串
 static void escape_json(const char *src, char *dst, size_t dst_size) {
@@ -1635,7 +1636,7 @@ bool savegame_save(const struct GameContext *game, int slot) {
     if (!ensure_save_dir()) return false;
     
     char filepath[256];
-    snprintf(filepath, sizeof(filepath), SAVE_FILE, slot);
+    strncpy(filepath, get_save_file(slot), sizeof(filepath));
     
     FILE *fp = fopen(filepath, "w");
     if (!fp) {
@@ -1772,7 +1773,7 @@ bool savegame_load(struct GameContext *game, int slot) {
     }
     
     char filepath[256];
-    snprintf(filepath, sizeof(filepath), SAVE_FILE, slot);
+    strncpy(filepath, get_save_file(slot), sizeof(filepath));
     
     char *json = read_file(filepath);
     if (!json) {
@@ -1825,7 +1826,7 @@ bool savegame_load(struct GameContext *game, int slot) {
 bool savegame_exists(int slot) {
     if (slot < 1 || slot > MAX_SAVE_SLOTS) return false;
     char filepath[256];
-    snprintf(filepath, sizeof(filepath), SAVE_FILE, slot);
+    strncpy(filepath, get_save_file(slot), sizeof(filepath));
     struct stat st;
     return stat(filepath, &st) == 0;
 }
@@ -1834,11 +1835,23 @@ bool savegame_exists(int slot) {
 bool savegame_delete(int slot) {
     if (slot < 1 || slot > MAX_SAVE_SLOTS) return false;
     char filepath[256];
-    snprintf(filepath, sizeof(filepath), SAVE_FILE, slot);
+    strncpy(filepath, get_save_file(slot), sizeof(filepath));
     if (remove(filepath) == 0) {
         LOGI("✓ 已删除存档：%s", filepath);
         return true;
     }
     LOGE("删除失败：%s", strerror(errno));
     return false;
+}
+
+// JNI 函数：设置存档目录
+JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_setSaveDir(JNIEnv *env, jclass clazz, jstring dir) {
+    const char *saveDir = (*env)->GetStringUTFChars(env, dir, NULL);
+    if (saveDir) {
+        strncpy(g_save_dir, saveDir, sizeof(g_save_dir) - 1);
+        g_save_dir[sizeof(g_save_dir) - 1] = '\0';
+        LOGI("设置存档目录：%s", g_save_dir);
+        (*env)->ReleaseStringUTFChars(env, dir, saveDir);
+    }
+    (void)clazz;
 }
