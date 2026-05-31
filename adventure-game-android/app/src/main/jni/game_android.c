@@ -1,53 +1,173 @@
+// ============================================================================
 // Android 游戏入口（HTTP API 版）
+// 功能：处理游戏核心逻辑，包括场景、NPC、物品、任务系统
+// 编译：通过 CMake 编译为 JNI 库
+// ============================================================================
+
 #include <jni.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <android/log.h>
 
+// Android 日志标签
 #define LOG_TAG "AdventureGame"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-// 简化版场景定义
+// ============================================================================
+// 数据结构定义
+// ============================================================================
+
+// 场景结构：定义游戏中的一个地点
 typedef struct Scene {
-    char id[64];
-    char name[64];
-    char description[512];
-    char connections[256];  // 可到达的场景列表
-    char npcs[256];         // 当前场景的 NPC
+    char id[64];          // 场景唯一标识符（英文 ID，用于代码判断）
+    char name[64];        // 场景显示名称（中文，用于 UI 显示）
+    char description[512];// 场景描述文本
+    char connections[256];// 可前往的场景列表，中文逗号分隔
+    char npcs[256];       // 当前场景的 NPC 列表，中文逗号分隔
 } Scene;
 
-// 简化版任务定义
+// 任务结构：定义游戏中的一个任务
 typedef struct Quest {
-    char id[64];
-    char name[64];
-    char description[512];
-    int completed;
-    int active;
+    char id[64];          // 任务唯一标识符
+    char name[64];        // 任务显示名称
+    char description[512];// 任务描述
+    int completed;        // 是否已完成 (0=未完成，1=已完成)
+    int active;           // 是否激活 (0=未激活，1=激活中)
 } Quest;
 
-// 简化版背包定义
+// 背包结构：玩家物品管理
 typedef struct Inventory {
-    int gold;
-    int item_count;
+    int gold;             // 金币数量
+    int item_count;       // 物品数量
 } Inventory;
 
-// 游戏状态
+// 游戏全局状态
 typedef struct GameContext {
-    Scene scenes[10];
-    int scene_count;
-    Scene *current_scene;
-    Inventory inventory;
-    Quest quests[30];
-    int quest_count;
-    int running;
+    Scene scenes[10];     // 场景数组，最大 10 个场景
+    int scene_count;      // 实际场景数量
+    Scene *current_scene; // 当前所在场景指针
+    Inventory inventory;  // 玩家背包
+    Quest quests[30];     // 任务数组，最大 30 个任务
+    int quest_count;      // 实际任务数量
+    int running;          // 游戏运行状态 (0=停止，1=运行中)
 } GameContext;
 
-static GameContext g_game;
-static int g_initialized = 0;
+// ============================================================================
+// 全局变量
+// ============================================================================
+static GameContext g_game;       // 游戏全局状态
+static int g_initialized = 0;    // 初始化标志 (0=未初始化，1=已初始化)
 
-// 初始化游戏
+// ============================================================================
+// 辅助函数：解析 NPC 列表
+// 参数：npcs - NPC 列表字符串（中文逗号分隔）
+//      target - 要查找的目标 NPC 名称
+// 返回：1=找到，0=未找到
+// ============================================================================
+static int find_npc_in_list(const char *npcs, const char *target) {
+    if (npcs == NULL || target == NULL) return 0;
+    
+    int len = strlen(npcs);
+    char current[128] = {0};  // 当前解析的 NPC 名称
+    int ci = 0;               // current 数组索引
+    
+    for (int i = 0; i <= len; i++) {
+        unsigned char c = (unsigned char)npcs[i];
+        
+        // 检测中文逗号（UTF-8 编码：0xE5 0xBC 0x8C）或字符串结束
+        if ((c == 0xE5 && i + 2 < len && 
+             (unsigned char)npcs[i+1] == 0xBC && 
+             (unsigned char)npcs[i+2] == 0x8C) || c == '\0') {
+            
+            current[ci] = '\0';
+            
+            // 去除前后空格
+            int start = 0, end = ci - 1;
+            while (start < ci && current[start] == ' ') start++;
+            while (end >= 0 && current[end] == ' ') end--;
+            
+            if (end >= start) {
+                char trimmed[128] = {0};
+                int ti = 0;
+                for (int j = start; j <= end; j++) {
+                    trimmed[ti++] = current[j];
+                }
+                trimmed[ti] = '\0';
+                
+                // 比较 NPC 名称
+                if (strcmp(trimmed, target) == 0) {
+                    return 1;
+                }
+            }
+            
+            ci = 0;  // 重置索引
+            if (c == 0xE5) i += 2;  // 跳过中文逗号的后续 2 个字节
+        } else {
+            if (ci < 127) current[ci++] = c;
+        }
+    }
+    
+    return 0;
+}
+
+// ============================================================================
+// 辅助函数：分割字符串获取目标列表（用于 getCommandTargets）
+// 参数：str - 输入字符串（中文逗号分隔）
+//      targets - 输出缓冲区（用 | 分隔）
+// ============================================================================
+static void parse_targets_from_string(const char *str, char *targets) {
+    if (str == NULL || targets == NULL) return;
+    
+    int len = strlen(str);
+    char current[128] = {0};
+    int ci = 0;
+    int first = 1;
+    
+    for (int i = 0; i <= len; i++) {
+        unsigned char c = (unsigned char)str[i];
+        
+        // 检测中文逗号或字符串结束
+        if ((c == 0xE5 && i + 2 < len && 
+             (unsigned char)str[i+1] == 0xBC && 
+             (unsigned char)str[i+2] == 0x8C) || c == '\0') {
+            
+            current[ci] = '\0';
+            
+            // 去除前后空格
+            int start = 0, end = ci - 1;
+            while (start < ci && current[start] == ' ') start++;
+            while (end >= 0 && current[end] == ' ') end--;
+            
+            if (end >= start) {
+                char trimmed[128] = {0};
+                int ti = 0;
+                for (int j = start; j <= end; j++) {
+                    trimmed[ti++] = current[j];
+                }
+                trimmed[ti] = '\0';
+                
+                if (ti > 0) {
+                    if (!first) strcat(targets, "|");
+                    strcat(targets, trimmed);
+                    first = 0;
+                }
+            }
+            
+            ci = 0;
+            if (c == 0xE5) i += 2;
+        } else {
+            if (ci < 127) current[ci++] = c;
+        }
+    }
+}
+
+// ============================================================================
+// JNI 函数：初始化游戏
+// 参数：modelPath - 模型路径（HTTP API 版本不使用）
+// 返回：JNI_TRUE=成功，JNI_FALSE=失败
+// ============================================================================
 JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_initGame(
     JNIEnv *env, jobject thiz, jstring modelPath) {
     (void)thiz; (void)modelPath;
@@ -209,33 +329,14 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
         g_game.running = 0;
         strcpy(response, "游戏结束，再见！");
     }
+    // talk 命令：与 NPC 对话
+    // 格式：talk [NPC 名称]
+    // 例：talk 村长、talk 铁匠老王
     else if (strncmp(inputText, "talk ", 5) == 0) {
         const char *npc_name = inputText + 5;
-        int found = 0;
         
-        if (strlen(g_game.current_scene->npcs) > 0) {
-            char *npc_list = strdup(g_game.current_scene->npcs);
-            char *npc = strtok(npc_list, "，");
-            while (npc != NULL) {
-                char trimmed[64];
-                int len = strlen(npc);
-                int start = 0, end = len - 1;
-                while (start < len && npc[start] == ' ') start++;
-                while (end >= 0 && npc[end] == ' ') end--;
-                int i = 0;
-                for (int j = start; j <= end; j++) {
-                    trimmed[i++] = npc[j];
-                }
-                trimmed[i] = '\0';
-                
-                if (strcmp(trimmed, npc_name) == 0) {
-                    found = 1;
-                    break;
-                }
-                npc = strtok(NULL, "，");
-            }
-            free(npc_list);
-        }
+        // 使用辅助函数查找 NPC（统一解析逻辑）
+        int found = find_npc_in_list(g_game.current_scene->npcs, npc_name);
         
         if (found) {
             if (strcmp(npc_name, "铁匠老王") == 0) {
@@ -321,37 +422,10 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets
             strcat(targets, g_game.scenes[i].name);
         }
     }
+    // talk 命令：获取当前场景 NPC 列表
     else if (strcmp(cmd, "talk") == 0) {
-        const char *npcs = g_game.current_scene->npcs;
-        if (npcs != NULL && strlen(npcs) > 0) {
-            char buf[512] = {0};
-            strncpy(buf, npcs, 511);
-            int first = 1;
-            char *p = buf;
-            char token[128];
-            int ti = 0;
-            
-            while (*p) {
-                unsigned char c1 = (unsigned char)*p;
-                if (c1 == 0xE5 && (unsigned char)*(p+1) == 0xBC && (unsigned char)*(p+2) == 0x8C) {
-                    token[ti] = '\0';
-                    if (ti > 0) {
-                        if (!first) strcat(targets, "|");
-                        strcat(targets, token);
-                        first = 0;
-                    }
-                    ti = 0;
-                    p += 3;
-                } else {
-                    if (ti < 127) token[ti++] = c1;
-                    p++;
-                }
-            }
-            if (ti > 0) {
-                if (!first) strcat(targets, "|");
-                strcat(targets, token);
-            }
-        }
+        // 从当前场景的 npcs 字段解析 NPC 名称
+        parse_targets_from_string(g_game.current_scene->npcs, targets);
     }
     
     (*env)->ReleaseStringUTFChars(env, command, cmd);
