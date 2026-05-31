@@ -306,15 +306,13 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getAvailableComma
 JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets(
     JNIEnv *env, jobject thiz, jstring command) {
     (void)env; (void)thiz;
-
-    if (g_game.current_scene == NULL) {
-        const char *cmd = (*env)->GetStringUTFChars(env, command, NULL);
-        (*env)->ReleaseStringUTFChars(env, command, cmd);
-        return (*env)->NewStringUTF(env, "");
-    }
+    
     if (!g_initialized) return (*env)->NewStringUTF(env, "");
+    if (g_game.current_scene == NULL) return (*env)->NewStringUTF(env, "");
     
     const char *cmd = (*env)->GetStringUTFChars(env, command, NULL);
+    if (cmd == NULL) return (*env)->NewStringUTF(env, "");
+    
     char targets[1024] = "";
     
     if (strcmp(cmd, "go") == 0) {
@@ -324,17 +322,35 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets
         }
     }
     else if (strcmp(cmd, "talk") == 0) {
-        if (g_game.current_scene != NULL && strlen(g_game.current_scene->npcs) > 0) {
-            char *npc_list = strdup(g_game.current_scene->npcs);
-            char *npc = strtok(npc_list, "，");
+        const char *npcs = g_game.current_scene->npcs;
+        if (npcs != NULL && strlen(npcs) > 0) {
+            char buf[512] = {0};
+            strncpy(buf, npcs, 511);
             int first = 1;
-            while (npc != NULL) {
-                if (!first) strcat(targets, "|");
-                strcat(targets, npc);
-                first = 0;
-                npc = strtok(NULL, "，");
+            char *p = buf;
+            char token[128];
+            int ti = 0;
+            
+            while (*p) {
+                unsigned char c1 = (unsigned char)*p;
+                if (c1 == 0xE5 && (unsigned char)*(p+1) == 0xBC && (unsigned char)*(p+2) == 0x8C) {
+                    token[ti] = '\0';
+                    if (ti > 0) {
+                        if (!first) strcat(targets, "|");
+                        strcat(targets, token);
+                        first = 0;
+                    }
+                    ti = 0;
+                    p += 3;
+                } else {
+                    if (ti < 127) token[ti++] = c1;
+                    p++;
+                }
             }
-            free(npc_list);
+            if (ti > 0) {
+                if (!first) strcat(targets, "|");
+                strcat(targets, token);
+            }
         }
     }
     
