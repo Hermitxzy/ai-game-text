@@ -34,7 +34,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     
     // 更多命令面板按钮
     private LinearLayout morePanel;
-    private Button btnAppearance, btnMemory, btnGo;
+    private Button btnAppearance, btnMemory, btnNpc, btnGo;
     private Button btnGift, btnTrade, btnInteract;
     private Button btnCreateNpc, btnRemoveNpc;
     
@@ -125,6 +125,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         morePanel = findViewById(R.id.morePanel);
         btnAppearance = findViewById(R.id.btnAppearance);
         btnMemory = findViewById(R.id.btnMemory);
+        btnNpc = findViewById(R.id.btnNpc);
         btnGo = findViewById(R.id.btnGo);
         btnGift = findViewById(R.id.btnGift);
         btnTrade = findViewById(R.id.btnTrade);
@@ -145,6 +146,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         btnMore.setOnClickListener(this);
         btnAppearance.setOnClickListener(this);
         btnMemory.setOnClickListener(this);
+        btnNpc.setOnClickListener(this);
         btnGo.setOnClickListener(this);
         btnGift.setOnClickListener(this);
         btnTrade.setOnClickListener(this);
@@ -249,6 +251,12 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         }
         else if (id == R.id.btnMemory) {
             executeCommand("memory");
+        }
+        else if (id == R.id.btnNpc) {
+            currentCommand = "npc";
+            loadTargetsForCommand("npc");
+            inputText.setText("npc ");
+            inputText.requestFocus();
         }
         else if (id == R.id.btnGo) {
             currentCommand = "go";

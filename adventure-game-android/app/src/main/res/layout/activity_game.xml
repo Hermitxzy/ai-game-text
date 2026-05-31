@@ -175,6 +175,16 @@
                     android:layout_weight="1"
                     android:text="记忆"
                     android:textSize="12sp"
+                    android:backgroundTint="#4a4a6a"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btnNpc"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="查看 NPC"
+                    android:textSize="12sp"
                     android:backgroundTint="#4a4a6a" />
 
             </LinearLayout>
