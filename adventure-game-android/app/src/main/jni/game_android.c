@@ -18,6 +18,8 @@
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define SAVE_DIR "/data/data/com.adventure.game/files/saves"
+#define MAX_NPCS 20
+#define MAX_MEMORIES 20
 #define MAX_SAVE_SLOTS 5
 
 // ============================================================================
@@ -1592,6 +1594,8 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
+#define MAX_NPCS 20
+#define MAX_MEMORIES 20
 #define MAX_SAVE_SLOTS 5
 
 
@@ -1699,10 +1703,47 @@ bool savegame_save(const struct GameContext *game, int slot) {
     // NPC
     fprintf(fp, "  \"npcs\": {\"count\":%d,\"npcs\":[", game->npc_count);
     for (int i = 0; i < game->npc_count; i++) {
-        escape_json(game->npcs[i].id, escaped, sizeof(escaped));
-        fprintf(fp, "%s{\"id\":\"%s\",\"name\":\"%s\",\"relation\":%d,\"is_custom\":%d,\"memory_count\":%d}",
-                i > 0 ? "," : "", escaped, game->npcs[i].name,
-                game->npcs[i].relation, game->npcs[i].is_custom, game->npcs[i].memory_count);
+        const NPC *n = &game->npcs[i];
+        char esc[1024];
+        
+        fprintf(fp, "%s{\"id\":\"%s\",\"name\":\"%s\",\"relation\":%d,\"is_custom\":%d,",
+                i > 0 ? "," : "", n->id, n->name, n->relation, n->is_custom);
+        
+        // 自定义 NPC 的完整数据
+        if (n->is_custom) {
+            escape_json(n->appearance.hair, esc, sizeof(esc));
+            fprintf(fp, "\"hair\":\"%s\",", esc);
+            escape_json(n->appearance.eyes, esc, sizeof(esc));
+            fprintf(fp, "\"eyes\":\"%s\",", esc);
+            escape_json(n->appearance.body, esc, sizeof(esc));
+            fprintf(fp, "\"body\":\"%s\",", esc);
+            escape_json(n->appearance.clothes, esc, sizeof(esc));
+            fprintf(fp, "\"clothes\":\"%s\",", esc);
+            escape_json(n->appearance.features, esc, sizeof(esc));
+            fprintf(fp, "\"features\":\"%s\",", esc);
+            
+            fprintf(fp, "\"status\":{\"health\":%d,\"mood\":%d,\"energy\":%d,",
+                    n->status.health, n->status.mood, n->status.energy);
+            escape_json(n->status.occupation, esc, sizeof(esc));
+            fprintf(fp, "\"occupation\":\"%s\",\"is_alive\":%d},", esc, n->status.is_alive);
+            
+            escape_json(n->description, esc, sizeof(esc));
+            fprintf(fp, "\"description\":\"%s\",", esc);
+            
+            escape_json(n->location, esc, sizeof(esc));
+            fprintf(fp, "\"location\":\"%s\",", esc);
+        }
+        
+        // 记忆（所有 NPC）
+        fprintf(fp, "\"memory_count\":%d,\"memories\":[", n->memory_count);
+        for (int j = 0; j < n->memory_count; j++) {
+            const MemoryEntry *m = &n->memories[j];
+            char esc2[512];
+            escape_json(m->content, esc2, sizeof(esc2));
+            fprintf(fp, "%s{\"content\":\"%s\",\"timestamp\":%d,\"type\":\"%s\",\"speaker\":\"%s\"}",
+                    j > 0 ? "," : "", esc2, m->timestamp, m->type, m->speaker);
+        }
+        fprintf(fp, "]}");
     }
     fprintf(fp, "]}\n}\n}\n");
     
@@ -1711,6 +1752,251 @@ bool savegame_save(const struct GameContext *game, int slot) {
     return true;
 }
 
+// 从 JSON 加载 NPC 数据
+static void load_npcs_from_json(struct GameContext *game, const char *json) {
+    const char *npcs_pos = strstr(json, "\"npcs\":");
+    if (!npcs_pos) return;
+    
+    // 找到 npcs 数组开始
+    const char *arr = strchr(npcs_pos, '[');
+    if (!arr) return;
+    arr++;
+    
+    // 重置 NPC 计数（保留初始 NPC）
+    int initial_npc_count = game->npc_count;
+    
+    // 解析每个 NPC
+    while (*arr && *arr != ']') {
+        while (*arr && (*arr == ',' || *arr == ' ' || *arr == '\n')) arr++;
+        if (*arr == ']') break;
+        if (*arr != '{') { arr++; continue; }
+        
+        // 查找 id
+        const char *id_start = strstr(arr, "\"id\":\"");
+        if (!id_start) break;
+        id_start += 6;
+        const char *id_end = strchr(id_start, '"');
+        if (!id_end) break;
+        
+        char npc_id[64];
+        size_t id_len = id_end - id_start;
+        if (id_len >= sizeof(npc_id)) id_len = sizeof(npc_id) - 1;
+        strncpy(npc_id, id_start, id_len);
+        npc_id[id_len] = '\0';
+        
+        // 查找现有 NPC
+        NPC *npc = NULL;
+        for (int i = 0; i < game->npc_count; i++) {
+            if (strcmp(game->npcs[i].id, npc_id) == 0) {
+                npc = &game->npcs[i];
+                break;
+            }
+        }
+        
+        // 如果是新 NPC（自定义），添加
+        if (!npc && game->npc_count < MAX_NPCS) {
+            npc = &game->npcs[game->npc_count++];
+            memset(npc, 0, sizeof(NPC));
+            strncpy(npc->id, npc_id, sizeof(npc->id) - 1);
+            npc->is_custom = 1;
+        }
+        
+        if (!npc) {
+            arr = strchr(arr, '}');
+            if (arr) arr++;
+            continue;
+        }
+        
+        // 解析 name
+        const char *name_pos = strstr(arr, "\"name\":\"");
+        if (name_pos) {
+            name_pos += 8;
+            const char *name_end = strchr(name_pos, '"');
+            if (name_end) {
+                size_t len = name_end - name_pos;
+                if (len >= sizeof(npc->name)) len = sizeof(npc->name) - 1;
+                strncpy(npc->name, name_pos, len);
+                npc->name[len] = '\0';
+            }
+        }
+        
+        // 解析 relation
+        const char *rel_pos = strstr(arr, "\"relation\":");
+        if (rel_pos) {
+            rel_pos += 11;
+            npc->relation = atoi(rel_pos);
+        }
+        
+        // 解析 is_custom
+        const char *custom_pos = strstr(arr, "\"is_custom\":");
+        if (custom_pos) {
+            custom_pos += 12;
+            npc->is_custom = atoi(custom_pos);
+        }
+        
+        // 如果是自定义 NPC，解析额外字段
+        if (npc->is_custom) {
+            // hair
+            const char *hair_pos = strstr(arr, "\"hair\":\"");
+            if (hair_pos) {
+                hair_pos += 8;
+                const char *end = strchr(hair_pos, '"');
+                if (end) {
+                    size_t len = end - hair_pos;
+                    if (len >= sizeof(npc->appearance.hair)) len = sizeof(npc->appearance.hair) - 1;
+                    strncpy(npc->appearance.hair, hair_pos, len);
+                    npc->appearance.hair[len] = '\0';
+                }
+            }
+            
+            // eyes, body, clothes, features 类似处理...
+            const char *eyes_pos = strstr(arr, "\"eyes\":\"");
+            if (eyes_pos) {
+                eyes_pos += 8;
+                const char *end = strchr(eyes_pos, '"');
+                if (end) {
+                    size_t len = end - eyes_pos;
+                    if (len >= sizeof(npc->appearance.eyes)) len = sizeof(npc->appearance.eyes) - 1;
+                    strncpy(npc->appearance.eyes, eyes_pos, len);
+                    npc->appearance.eyes[len] = '\0';
+                }
+            }
+            
+            const char *body_pos = strstr(arr, "\"body\":\"");
+            if (body_pos) {
+                body_pos += 8;
+                const char *end = strchr(body_pos, '"');
+                if (end) {
+                    size_t len = end - body_pos;
+                    if (len >= sizeof(npc->appearance.body)) len = sizeof(npc->appearance.body) - 1;
+                    strncpy(npc->appearance.body, body_pos, len);
+                    npc->appearance.body[len] = '\0';
+                }
+            }
+            
+            const char *clothes_pos = strstr(arr, "\"clothes\":\"");
+            if (clothes_pos) {
+                clothes_pos += 11;
+                const char *end = strchr(clothes_pos, '"');
+                if (end) {
+                    size_t len = end - clothes_pos;
+                    if (len >= sizeof(npc->appearance.clothes)) len = sizeof(npc->appearance.clothes) - 1;
+                    strncpy(npc->appearance.clothes, clothes_pos, len);
+                    npc->appearance.clothes[len] = '\0';
+                }
+            }
+            
+            const char *features_pos = strstr(arr, "\"features\":\"");
+            if (features_pos) {
+                features_pos += 12;
+                const char *end = strchr(features_pos, '"');
+                if (end) {
+                    size_t len = end - features_pos;
+                    if (len >= sizeof(npc->appearance.features)) len = sizeof(npc->appearance.features) - 1;
+                    strncpy(npc->appearance.features, features_pos, len);
+                    npc->appearance.features[len] = '\0';
+                }
+            }
+            
+            // description
+            const char *desc_pos = strstr(arr, "\"description\":\"");
+            if (desc_pos) {
+                desc_pos += 15;
+                const char *end = strchr(desc_pos, '"');
+                if (end) {
+                    size_t len = end - desc_pos;
+                    if (len >= sizeof(npc->description)) len = sizeof(npc->description) - 1;
+                    strncpy(npc->description, desc_pos, len);
+                    npc->description[len] = '\0';
+                }
+            }
+            
+            // location
+            const char *loc_pos = strstr(arr, "\"location\":\"");
+            if (loc_pos) {
+                loc_pos += 12;
+                const char *end = strchr(loc_pos, '"');
+                if (end) {
+                    size_t len = end - loc_pos;
+                    if (len >= sizeof(npc->location)) len = sizeof(npc->location) - 1;
+                    strncpy(npc->location, loc_pos, len);
+                    npc->location[len] = '\0';
+                }
+            }
+            
+            // status.health, mood, energy
+            const char *status_pos = strstr(arr, "\"status\":{");
+            if (status_pos) {
+                const char *h = strstr(status_pos, "\"health\":");
+                if (h) { h += 9; npc->status.health = atoi(h); }
+                const char *m = strstr(status_pos, "\"mood\":");
+                if (m) { m += 7; npc->status.mood = atoi(m); }
+                const char *e = strstr(status_pos, "\"energy\":");
+                if (e) { e += 8; npc->status.energy = atoi(e); }
+            }
+        }
+        
+        // 加载记忆
+        const char *mem_pos = strstr(arr, "\"memories\":[");
+        if (mem_pos) {
+            mem_pos += 11;
+            npc->memory_count = 0;
+            while (*mem_pos && *mem_pos != ']' && npc->memory_count < MAX_MEMORIES) {
+                while (*mem_pos && (*mem_pos == ',' || *mem_pos == ' ' || *mem_pos == '\n')) mem_pos++;
+                if (*mem_pos == ']') break;
+                if (*mem_pos != '{') { mem_pos++; continue; }
+                
+                MemoryEntry *mem = &npc->memories[npc->memory_count];
+                
+                const char *c = strstr(mem_pos, "\"content\":\"");
+                if (c) {
+                    c += 11;
+                    const char *end = strchr(c, '"');
+                    if (end) {
+                        size_t len = end - c;
+                        if (len >= sizeof(mem->content)) len = sizeof(mem->content) - 1;
+                        strncpy(mem->content, c, len);
+                        mem->content[len] = '\0';
+                    }
+                }
+                
+                const char *t = strstr(mem_pos, "\"timestamp\":");
+                if (t) { t += 12; mem->timestamp = atoi(t); }
+                
+                const char *type = strstr(mem_pos, "\"type\":\"");
+                if (type) {
+                    type += 8;
+                    const char *end = strchr(type, '"');
+                    if (end) {
+                        size_t len = end - type;
+                        if (len >= sizeof(mem->type)) len = sizeof(mem->type) - 1;
+                        strncpy(mem->type, type, len);
+                        mem->type[len] = '\0';
+                    }
+                }
+                
+                const char *sp = strstr(mem_pos, "\"speaker\":\"");
+                if (sp) {
+                    sp += 11;
+                    const char *end = strchr(sp, '"');
+                    if (end) {
+                        size_t len = end - sp;
+                        if (len >= sizeof(mem->speaker)) len = sizeof(mem->speaker) - 1;
+                        strncpy(mem->speaker, sp, len);
+                        mem->speaker[len] = '\0';
+                    }
+                }
+                
+                npc->memory_count++;
+                mem_pos = strchr(mem_pos, '}');
+                if (mem_pos) mem_pos++;
+            }
+        }
+        
+        arr = strchr(arr, '}');
+        if (arr) arr++;
+    }
+}
 // 从 JSON 提取整数
 static int json_get_int(const char *json, const char *key) {
     char search[128];
@@ -1807,6 +2093,9 @@ bool savegame_load(struct GameContext *game, int slot) {
     json_get_str(json, "features", game->player_appearance.features, sizeof(game->player_appearance.features));
     
     game->inventory.gold = json_get_int(json, "gold");
+    
+    // 加载 NPC 数据（包括自定义 NPC）
+    load_npcs_from_json(game, json);
     
     // 恢复场景指针
     game->current_scene = NULL;
