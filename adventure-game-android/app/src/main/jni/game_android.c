@@ -1,6 +1,6 @@
 // ============================================================================
-// Android 游戏入口（HTTP API 版）- v1.4
-// 功能：游戏核心逻辑，包括场景、NPC（外貌/记忆/状态）、主角系统、交互动作
+// Android 游戏入口（HTTP API 版）- v2.6
+// 功能：游戏核心逻辑，包括场景、NPC（外貌/记忆/状态）、主角系统、交互动作、存档系统
 // 编译：通过 CMake 编译为 JNI 库
 // ============================================================================
 
@@ -17,7 +17,6 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define SAVE_DIR "/data/data/com.adventure.game/files/saves"
 #define MAX_NPCS 20
 #define MAX_MEMORIES 20
 #define MAX_SAVE_SLOTS 5
@@ -153,6 +152,7 @@ typedef struct GameContext {
 // ============================================================================
 static GameContext g_game;
 static int g_initialized = 0;
+static char g_save_dir[512] = "/data/data/com.adventure.game/files/saves";
 
 // ============================================================================
 // 辅助函数：添加主角记忆
@@ -308,7 +308,7 @@ JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_initGame(
     
     if (g_initialized) return JNI_TRUE;
     
-    LOGI("=== 初始化游戏 v1.4 ===");
+    LOGI("=== 初始化游戏 v2.6 ===");
     memset(&g_game, 0, sizeof(GameContext));
     
     // 设置主角默认属性
@@ -1255,7 +1255,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
         for (int i = 1; i <= 5; i++) {
             if (savegame_exists(i)) {
                 char fp[256];
-                snprintf(fp, sizeof(fp), SAVE_DIR "/save_slot_%d.json", i);
+                snprintf(fp, sizeof(fp), "%s/save_slot_%d.json", g_save_dir, i);
                 struct stat st;
                 if (stat(fp, &st) == 0) {
                     char tb[64];
@@ -1280,7 +1280,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             strcpy(response, "无效的槽位！请使用 1-5。\n用法：save [槽位]");
         } else if (savegame_save(&g_game, slot)) {
             snprintf(response, sizeof(response), "✓ 游戏已保存到槽位 %d\n路径：%s/save_slot_%d.json",
-                slot, SAVE_DIR, slot);
+                slot, g_save_dir, slot);
         } else {
             strcpy(response, "✗ 保存失败！");
         }
@@ -1600,7 +1600,6 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
 
 
 // 存档目录
-static char g_save_dir[512] = "/data/data/com.adventure.game/files/saves";
 static inline const char* get_save_file(int slot) { static char buf[768]; snprintf(buf, sizeof(buf), "%s/save_slot_%d.json", g_save_dir, slot); return buf; }
 
 // 转义 JSON 字符串
@@ -1622,8 +1621,8 @@ static void escape_json(const char *src, char *dst, size_t dst_size) {
 // 创建存档目录
 static bool ensure_save_dir(void) {
     struct stat st = {0};
-    if (stat(SAVE_DIR, &st) == -1) {
-        if (mkdir(SAVE_DIR, 0755) == -1) {
+    if (stat(g_save_dir, &st) == -1) {
+        if (mkdir(g_save_dir, 0755) == -1) {
             LOGE("无法创建存档目录：%s", strerror(errno));
             return false;
         }
