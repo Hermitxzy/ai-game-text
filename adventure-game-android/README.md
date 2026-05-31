@@ -174,7 +174,14 @@ ask Write a short story about a knight
 
 ## 版本历史
 
-### v2.2 (当前版本)
+### v2.3 (当前版本)
+- ✅ 修复多次 NPC AI 对话闪退问题：使用循环缓冲区防止数组越界
+- ✅ 修复 NPC 记忆溢出 problem：当记忆满 20 条时自动覆盖最旧记忆
+- ✅ 修复主角记忆溢出 problem：当记忆满 30 条时自动覆盖最旧记忆
+- ✅ 添加 LOGW 日志宏定义
+- ✅ 增强内存安全性：所有 strncpy 添加 null 终止符
+
+### v2.2
 - ✅ 修复"AI 对话"按钮无响应问题：添加按钮变量声明和点击事件绑定
 - ✅ 修复"AI 问答"按钮无响应问题：添加 findViewById 和 onClick 绑定
 - ✅ 代码优化：清理重复的 findViewById 调用
