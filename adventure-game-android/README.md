@@ -74,7 +74,8 @@ cd ~/llama.cpp
 - 互动 - 与 NPC 友好互动
 
 自定义：
-- 创建 NPC - 创建自定义 NPC
+- 创建 NPC - 创建自定义 NPC（点击查看详情）
+- 设置 NPC - 修改自定义 NPC 属性
 - 删除 NPC - 删除自定义 NPC
 
 **输入框**
@@ -113,8 +114,18 @@ interact [NPC]          # 与 NPC 互动（聊天等）
 
 **自定义 NPC**
 ```
-create_npc              # 创建自定义 NPC
+create_npc              # 查看创建向导和详细说明
+create_npc [名] [职业]  # 快速创建 NPC
+例：create_npc 艾莉 法师
+    create_npc 剑圣 战士
+
+setnpc [名] [属性] [值] # 修改 NPC 属性
+属性：name, hair, eyes, body, clothes, features, occupation, desc
+例：setnpc 艾莉 hair 金色长发
+    setnpc 艾莉 occupation 大法师
+
 remove_npc [NPC 名]     # 删除自定义 NPC
+例：remove_npc 艾莉
 ```
 
 **AI 对话**
@@ -156,7 +167,19 @@ ask Write a short story about a knight
 
 ## 版本历史
 
-### v1.8 (当前版本)
+### v1.9 (当前版本)
+- ✅ 完善自定义 NPC 创建功能，添加三种创建方式：
+  - 快速创建：`create_npc [名称] [职业]`
+  - 详细创建：`create_npc [名称] [职业] [发型] [眼睛] [身材] [服装] [特征]`
+  - AI 创建：`ask 创建一个 [描述]`
+- ✅ 新增 `setnpc` 命令：修改自定义 NPC 属性（name/hair/eyes/body/clothes/features/occupation/desc）
+- ✅ 新增 `btnSetNpc` 按钮：在更多面板中可快速设置 NPC 属性
+- ✅ 创建向导：输入 `create_npc` 查看完整使用说明
+- ✅ 创建反馈：成功创建后显示 NPC 完整信息卡，包含操作提示
+- ✅ 删除 NPC：优化为只显示自定义 NPC 列表
+- ✅ 统计显示：创建向导显示当前已创建的自定义 NPC 数量
+
+### v1.8
 - ✅ 修复 NPC 位置检查 bug：交互指令（对话/送礼/交易/互动）现在正确识别 NPC 位置
 - ✅ 统一使用 `NPC.location` 字段判断 NPC 是否在场，而非过时的场景字符串
 - ✅ 修复后村长、村民等 NPC 可以正常交互
