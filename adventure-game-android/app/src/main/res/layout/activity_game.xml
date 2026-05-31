@@ -8,7 +8,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="文字冒险游戏 v1.4"
+        android:text="文字冒险游戏 v2.0"
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="#ffffff"
@@ -119,6 +119,16 @@
                 android:text="对话"
                 android:textSize="13sp"
                 android:backgroundTint="#4a4a6a"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnChat"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="AI 对话"
+                android:textSize="13sp"
+                android:backgroundTint="#5a5a8a"
                 android:layout_marginEnd="4dp" />
 
             <Button
@@ -305,6 +315,33 @@
                     android:text="删除 NPC"
                     android:textSize="12sp"
                     android:backgroundTint="#4a4a6a" />
+
+            </LinearLayout>
+
+            <!-- AI 功能 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="【AI 功能】"
+                android:textColor="#aaaacc"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/btnAsk"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="AI 问答"
+                    android:textSize="12sp"
+                    android:backgroundTint="#5a5a8a"
+                    android:layout_marginEnd="4dp" />
 
             </LinearLayout>
 

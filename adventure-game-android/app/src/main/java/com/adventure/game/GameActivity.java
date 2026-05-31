@@ -304,6 +304,17 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
             inputText.setText("remove_npc ");
             inputText.requestFocus();
         }
+        else if (id == R.id.btnChat) {
+            // AI 对话需要选择 NPC 后输入对话内容
+            currentCommand = "chat";
+            loadTargetsForCommand("talk"); // 使用当前场景 NPC 列表
+            inputText.setText("chat ");
+            inputText.requestFocus();
+        }
+        else if (id == R.id.btnAsk) {
+            // AI 问答直接输入问题
+            executeCommand("ask ");
+        }
     }
     
     private void executeCommand(String cmd) {
