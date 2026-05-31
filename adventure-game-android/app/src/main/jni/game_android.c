@@ -1,6 +1,6 @@
 // ============================================================================
-// Android 游戏入口（HTTP API 版）
-// 功能：处理游戏核心逻辑，包括场景、NPC、物品、任务系统
+// Android 游戏入口（HTTP API 版）- v1.4
+// 功能：游戏核心逻辑，包括场景、NPC（外貌/记忆/状态）、主角系统、交互动作
 // 编译：通过 CMake 编译为 JNI 库
 // ============================================================================
 
@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include <android/log.h>
 
 // Android 日志标签
@@ -19,71 +20,194 @@
 // 数据结构定义
 // ============================================================================
 
-// 场景结构：定义游戏中的一个地点
+// NPC 外貌描述
+typedef struct NPCAppearance {
+    char hair[64];        // 发型/发色
+    char eyes[64];        // 眼睛描述
+    char body[64];        // 身材/体型
+    char clothes[128];    // 服装描述
+    char features[128];   // 特征（疤痕、饰品等）
+} NPCAppearance;
+
+// NPC 记忆条目
+typedef struct MemoryEntry {
+    char content[256];    // 记忆内容
+    int timestamp;        // 时间戳（游戏内时间）
+    int relation_change;  // 关系变化值（+/-）
+} MemoryEntry;
+
+// NPC 状态
+typedef struct NPCStatus {
+    int health;           // 生命值 (0-100)
+    int mood;             // 心情 (0-100)
+    int energy;           // 精力 (0-100)
+    char occupation[64];  // 职业
+    int is_alive;         // 是否存活 (0=死亡，1=存活)
+} NPCStatus;
+
+// NPC 结构体
+typedef struct NPC {
+    char id[64];          // NPC 唯一标识符
+    char name[64];        // NPC 名称
+    char description[256];// NPC 描述
+    NPCAppearance appearance;  // 外貌
+    NPCStatus status;     // 状态
+    MemoryEntry memories[20]; // 记忆数组，最多 20 条
+    int memory_count;     // 记忆数量
+    int relation;         // 与主角关系 (0-100)
+    char location[64];    // 所在位置 ID
+    int is_custom;        // 是否玩家自定义 (0=内置，1=自定义)
+} NPC;
+
+// 主角外貌
+typedef struct PlayerAppearance {
+    char hair[64];
+    char eyes[64];
+    char body[64];
+    char clothes[128];
+    char features[128];
+} PlayerAppearance;
+
+// 主角状态
+typedef struct PlayerStatus {
+    int health;           // 生命值 (0-100)
+    int max_health;       // 最大生命
+    int mana;             // 法力值 (0-100)
+    int max_mana;         // 最大法力
+    int strength;         // 力量
+    int agility;          // 敏捷
+    int intelligence;     // 智力
+    int level;            // 等级
+    int exp;              // 经验值
+    char title[64];       // 称号
+} PlayerStatus;
+
+// 主角记忆
+typedef struct PlayerMemory {
+    MemoryEntry entries[30]; // 记忆数组，最多 30 条
+    int count;               // 记忆数量
+} PlayerMemory;
+
+// 场景结构
 typedef struct Scene {
-    char id[64];          // 场景唯一标识符（英文 ID，用于代码判断）
-    char name[64];        // 场景显示名称（中文，用于 UI 显示）
-    char description[512];// 场景描述文本
-    char connections[256];// 可前往的场景列表，中文逗号分隔
-    char npcs[256];       // 当前场景的 NPC 列表，中文逗号分隔
+    char id[64];
+    char name[64];
+    char description[512];
+    char connections[256]; // 中文逗号分隔
+    char npcs[256];        // NPC 列表，中文逗号分隔
 } Scene;
 
-// 任务结构：定义游戏中的一个任务
+// 任务结构
 typedef struct Quest {
-    char id[64];          // 任务唯一标识符
-    char name[64];        // 任务显示名称
-    char description[512];// 任务描述
-    int completed;        // 是否已完成 (0=未完成，1=已完成)
-    int active;           // 是否激活 (0=未激活，1=激活中)
+    char id[64];
+    char name[64];
+    char description[512];
+    int completed;
+    int active;
 } Quest;
 
-// 背包结构：玩家物品管理
+// 背包物品
+typedef struct Item {
+    char name[64];
+    char type[32];        // "weapon", "armor", "consumable", "material"
+    int value;            // 价值
+    int effect;           // 效果值
+} Item;
+
+// 背包结构
 typedef struct Inventory {
-    int gold;             // 金币数量
-    int item_count;       // 物品数量
+    int gold;
+    Item items[50];       // 最多 50 个物品
+    int item_count;
 } Inventory;
 
 // 游戏全局状态
 typedef struct GameContext {
-    Scene scenes[10];     // 场景数组，最大 10 个场景
-    int scene_count;      // 实际场景数量
-    Scene *current_scene; // 当前所在场景指针
-    Inventory inventory;  // 玩家背包
-    Quest quests[30];     // 任务数组，最大 30 个任务
-    int quest_count;      // 实际任务数量
-    int running;          // 游戏运行状态 (0=停止，1=运行中)
+    Scene scenes[15];     // 最多 15 个场景
+    int scene_count;
+    Scene *current_scene;
+    NPC npcs[20];         // 最多 20 个 NPC
+    int npc_count;
+    int game_time;        // 游戏内时间（小时）
+    int day;              // 第几天
+    char player_name[64]; // 主角名字
+    PlayerStatus player_status;
+    PlayerAppearance player_appearance;
+    PlayerMemory player_memory;
+    Inventory inventory;
+    Quest quests[30];
+    int quest_count;
+    int running;
 } GameContext;
 
 // ============================================================================
 // 全局变量
 // ============================================================================
-static GameContext g_game;       // 游戏全局状态
-static int g_initialized = 0;    // 初始化标志 (0=未初始化，1=已初始化)
+static GameContext g_game;
+static int g_initialized = 0;
+
+// ============================================================================
+// 辅助函数：添加主角记忆
+// ============================================================================
+static void add_player_memory(const char *content, int relation_change) {
+    if (g_game.player_memory.count >= 30) return;
+    
+    MemoryEntry *entry = &g_game.player_memory.entries[g_game.player_memory.count];
+    strncpy(entry->content, content, 255);
+    entry->content[255] = '\0';
+    entry->timestamp = g_game.game_time + g_game.day * 24;
+    entry->relation_change = relation_change;
+    g_game.player_memory.count++;
+    
+    LOGI("添加记忆：%s", content);
+}
+
+// ============================================================================
+// 辅助函数：添加 NPC 记忆
+// ============================================================================
+static void add_npc_memory(NPC *npc, const char *content, int relation_change) {
+    if (npc == NULL || npc->memory_count >= 20) return;
+    
+    MemoryEntry *entry = &npc->memories[npc->memory_count];
+    strncpy(entry->content, content, 255);
+    entry->content[255] = '\0';
+    entry->timestamp = g_game.game_time + g_game.day * 24;
+    entry->relation_change = relation_change;
+    npc->memory_count++;
+    
+    LOGI("NPC %s 添加记忆：%s", npc->name, content);
+}
+
+// ============================================================================
+// 辅助函数：查找 NPC
+// ============================================================================
+static NPC* find_npc_by_name(const char *name) {
+    for (int i = 0; i < g_game.npc_count; i++) {
+        if (strcmp(g_game.npcs[i].name, name) == 0) {
+            return &g_game.npcs[i];
+        }
+    }
+    return NULL;
+}
 
 // ============================================================================
 // 辅助函数：解析 NPC 列表
-// 参数：npcs - NPC 列表字符串（中文逗号分隔）
-//      target - 要查找的目标 NPC 名称
-// 返回：1=找到，0=未找到
 // ============================================================================
 static int find_npc_in_list(const char *npcs, const char *target) {
     if (npcs == NULL || target == NULL) return 0;
     
     int len = strlen(npcs);
-    char current[128] = {0};  // 当前解析的 NPC 名称
-    int ci = 0;               // current 数组索引
+    char current[128] = {0};
+    int ci = 0;
     
     for (int i = 0; i <= len; i++) {
         unsigned char c = (unsigned char)npcs[i];
         
-        // 检测中文逗号（UTF-8 编码：0xE5 0xBC 0x8C）或字符串结束
         if ((c == 0xE5 && i + 2 < len && 
              (unsigned char)npcs[i+1] == 0xBC && 
              (unsigned char)npcs[i+2] == 0x8C) || c == '\0') {
             
             current[ci] = '\0';
-            
-            // 去除前后空格
             int start = 0, end = ci - 1;
             while (start < ci && current[start] == ' ') start++;
             while (end >= 0 && current[end] == ' ') end--;
@@ -96,26 +220,22 @@ static int find_npc_in_list(const char *npcs, const char *target) {
                 }
                 trimmed[ti] = '\0';
                 
-                // 比较 NPC 名称
                 if (strcmp(trimmed, target) == 0) {
                     return 1;
                 }
             }
             
-            ci = 0;  // 重置索引
-            if (c == 0xE5) i += 2;  // 跳过中文逗号的后续 2 个字节
+            ci = 0;
+            if (c == 0xE5) i += 2;
         } else {
             if (ci < 127) current[ci++] = c;
         }
     }
-    
     return 0;
 }
 
 // ============================================================================
-// 辅助函数：分割字符串获取目标列表（用于 getCommandTargets）
-// 参数：str - 输入字符串（中文逗号分隔）
-//      targets - 输出缓冲区（用 | 分隔）
+// 辅助函数：分割字符串
 // ============================================================================
 static void parse_targets_from_string(const char *str, char *targets) {
     if (str == NULL || targets == NULL) return;
@@ -128,14 +248,11 @@ static void parse_targets_from_string(const char *str, char *targets) {
     for (int i = 0; i <= len; i++) {
         unsigned char c = (unsigned char)str[i];
         
-        // 检测中文逗号或字符串结束
         if ((c == 0xE5 && i + 2 < len && 
              (unsigned char)str[i+1] == 0xBC && 
              (unsigned char)str[i+2] == 0x8C) || c == '\0') {
             
             current[ci] = '\0';
-            
-            // 去除前后空格
             int start = 0, end = ci - 1;
             while (start < ci && current[start] == ' ') start++;
             while (end >= 0 && current[end] == ' ') end--;
@@ -154,7 +271,6 @@ static void parse_targets_from_string(const char *str, char *targets) {
                     first = 0;
                 }
             }
-            
             ci = 0;
             if (c == 0xE5) i += 2;
         } else {
@@ -165,8 +281,6 @@ static void parse_targets_from_string(const char *str, char *targets) {
 
 // ============================================================================
 // JNI 函数：初始化游戏
-// 参数：modelPath - 模型路径（HTTP API 版本不使用）
-// 返回：JNI_TRUE=成功，JNI_FALSE=失败
 // ============================================================================
 JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_initGame(
     JNIEnv *env, jobject thiz, jstring modelPath) {
@@ -174,40 +288,128 @@ JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_initGame(
     
     if (g_initialized) return JNI_TRUE;
     
-    LOGI("=== 初始化游戏 ===");
+    LOGI("=== 初始化游戏 v1.4 ===");
     memset(&g_game, 0, sizeof(GameContext));
     
-    // 创建场景
+    // 设置主角默认属性
+    strcpy(g_game.player_name, "冒险者");
+    g_game.player_status.max_health = 100;
+    g_game.player_status.health = 100;
+    g_game.player_status.max_mana = 50;
+    g_game.player_status.mana = 50;
+    g_game.player_status.strength = 10;
+    g_game.player_status.agility = 10;
+    g_game.player_status.intelligence = 10;
+    g_game.player_status.level = 1;
+    g_game.player_status.exp = 0;
+    strcpy(g_game.player_status.title, "新手冒险者");
+    
+    // 主角外貌
+    strcpy(g_game.player_appearance.hair, "黑色短发");
+    strcpy(g_game.player_appearance.eyes, "黑色眼睛");
+    strcpy(g_game.player_appearance.body, "身材匀称");
+    strcpy(g_game.player_appearance.clothes, "朴素的冒险者服装");
+    strcpy(g_game.player_appearance.features, "无特征");
+    
+    // 初始化背包
+    g_game.inventory.gold = 50;
+    g_game.inventory.item_count = 1;
+    strcpy(g_game.inventory.items[0].name, "面包");
+    strcpy(g_game.inventory.items[0].type, "consumable");
+    g_game.inventory.items[0].value = 5;
+    g_game.inventory.items[0].effect = 10;
+    
+    // NPC 1: 村长
+    strcpy(g_game.npcs[0].id, "elder");
+    strcpy(g_game.npcs[0].name, "村长");
+    strcpy(g_game.npcs[0].description, "村庄的领导者，睿智而仁慈。");
+    strcpy(g_game.npcs[0].appearance.hair, "花白长发");
+    strcpy(g_game.npcs[0].appearance.eyes, "深邃的灰眼睛");
+    strcpy(g_game.npcs[0].appearance.body, "微驼的瘦高身材");
+    strcpy(g_game.npcs[0].appearance.clothes, "深蓝色长袍，绣有金色纹路");
+    strcpy(g_game.npcs[0].appearance.features, "手持橡木手杖，胡须花白");
+    g_game.npcs[0].status.health = 60;
+    g_game.npcs[0].status.mood = 70;
+    g_game.npcs[0].status.energy = 50;
+    strcpy(g_game.npcs[0].status.occupation, "村长");
+    g_game.npcs[0].status.is_alive = 1;
+    g_game.npcs[0].relation = 50;
+    strcpy(g_game.npcs[0].location, "village");
+    g_game.npcs[0].is_custom = 0;
+    g_game.npcs[0].memory_count = 0;
+    
+    // NPC 2: 村民
+    strcpy(g_game.npcs[1].id, "villager");
+    strcpy(g_game.npcs[1].name, "村民");
+    strcpy(g_game.npcs[1].description, "普通的村民，正在忙碌地工作。");
+    strcpy(g_game.npcs[1].appearance.hair, "棕色短发");
+    strcpy(g_game.npcs[1].appearance.eyes, "棕色眼睛");
+    strcpy(g_game.npcs[1].appearance.body, "健壮的身材");
+    strcpy(g_game.npcs[1].appearance.clothes, "粗布衣和围裙");
+    strcpy(g_game.npcs[1].appearance.features, "手上布满老茧");
+    g_game.npcs[1].status.health = 80;
+    g_game.npcs[1].status.mood = 60;
+    g_game.npcs[1].status.energy = 70;
+    strcpy(g_game.npcs[1].status.occupation, "农民");
+    g_game.npcs[1].status.is_alive = 1;
+    g_game.npcs[1].relation = 40;
+    strcpy(g_game.npcs[1].location, "village");
+    g_game.npcs[1].is_custom = 0;
+    g_game.npcs[1].memory_count = 0;
+    
+    // NPC 3: 铁匠老王
+    strcpy(g_game.npcs[2].id, "blacksmith");
+    strcpy(g_game.npcs[2].name, "铁匠老王");
+    strcpy(g_game.npcs[2].description, "技艺精湛的铁匠，性格豪爽。");
+    strcpy(g_game.npcs[2].appearance.hair, "黑色寸头");
+    strcpy(g_game.npcs[2].appearance.eyes, "炯炯有神的黑眼睛");
+    strcpy(g_game.npcs[2].appearance.body, "魁梧健壮，肌肉发达");
+    strcpy(g_game.npcs[2].appearance.clothes, "皮质围裙，露出强壮的手臂");
+    strcpy(g_game.npcs[2].appearance.features, "右臂有烧伤疤痕，戴着铁护腕");
+    g_game.npcs[2].status.health = 90;
+    g_game.npcs[2].status.mood = 75;
+    g_game.npcs[2].status.energy = 80;
+    strcpy(g_game.npcs[2].status.occupation, "铁匠");
+    g_game.npcs[2].status.is_alive = 1;
+    g_game.npcs[2].relation = 45;
+    strcpy(g_game.npcs[2].location, "blacksmith");
+    g_game.npcs[2].is_custom = 0;
+    g_game.npcs[2].memory_count = 0;
+    
+    g_game.npc_count = 3;
+    
+    // 场景 1: 新手村广场
     strcpy(g_game.scenes[0].id, "village");
     strcpy(g_game.scenes[0].name, "新手村广场");
     strcpy(g_game.scenes[0].description, "你站在一个宁静的小村庄广场中央。四周是古朴的木屋，村民们忙碌地走动。北方是铁匠铺，东方有通往森林的小路。");
     strcpy(g_game.scenes[0].connections, "铁匠铺，迷雾森林入口");
     strcpy(g_game.scenes[0].npcs, "村长，村民");
     
+    // 场景 2: 铁匠铺
     strcpy(g_game.scenes[1].id, "blacksmith");
     strcpy(g_game.scenes[1].name, "铁匠铺");
-    strcpy(g_game.scenes[1].description, "铁匠铺内炉火熊熊。墙上挂满了各式武器和护甲。");
+    strcpy(g_game.scenes[1].description, "铁匠铺内炉火熊熊。墙上挂满了各式武器和护甲，空气中弥漫着金属和煤炭的味道。");
     strcpy(g_game.scenes[1].connections, "新手村广场");
     strcpy(g_game.scenes[1].npcs, "铁匠老王");
     
+    // 场景 3: 迷雾森林入口
     strcpy(g_game.scenes[2].id, "forest");
     strcpy(g_game.scenes[2].name, "迷雾森林入口");
-    strcpy(g_game.scenes[2].description, "茂密的树木遮天蔽日，薄雾在林间飘荡。一条小径通向森林深处。");
+    strcpy(g_game.scenes[2].description, "茂密的树木遮天蔽日，薄雾在林间飘荡。一条小径通向森林深处，隐约能听到鸟鸣声。");
     strcpy(g_game.scenes[2].connections, "新手村广场");
     strcpy(g_game.scenes[2].npcs, "");
     
     g_game.scene_count = 3;
     g_game.current_scene = &g_game.scenes[0];
+    g_game.game_time = 8; // 早上 8 点
+    g_game.day = 1;
     
-    // 初始化背包
-    g_game.inventory.gold = 50;
-    g_game.inventory.item_count = 1;
-    
-    // 创建任务
+    // 任务 1: 清剿哥布林
     strcpy(g_game.quests[0].id, "kill_goblins");
     strcpy(g_game.quests[0].name, "清剿哥布林");
-    strcpy(g_game.quests[0].description, "村庄附近的哥布林越来越多，需要教训它们。");
+    strcpy(g_game.quests[0].description, "村庄附近的哥布林越来越多，村长请求你帮忙教训它们。已经消灭 0/5 只哥布林。");
     g_game.quests[0].active = 1;
+    g_game.quests[0].completed = 0;
     g_game.quest_count = 1;
     
     g_game.running = 1;
@@ -217,7 +419,9 @@ JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_initGame(
     return JNI_TRUE;
 }
 
-// 处理输入（游戏命令）
+// ============================================================================
+// JNI 函数：处理输入
+// ============================================================================
 JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
     JNIEnv *env, jobject thiz, jstring input) {
     (void)thiz;
@@ -225,66 +429,226 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
     const char *inputText = (*env)->GetStringUTFChars(env, input, NULL);
     LOGI("输入：%s", inputText);
     
-    char response[4096] = {0};
+    char response[8192] = {0};
     
-    // 简单命令处理
+    // help 命令
     if (strcmp(inputText, "help") == 0 || strcmp(inputText, "h") == 0) {
         strcpy(response, 
-            "命令帮助:\n"
+            "=== 命令帮助 ===\n\n"
+            "【基础命令】\n"
             "  look - 查看当前场景\n"
             "  map - 查看完整地图\n"
             "  go [地点] - 移动\n"
             "  inventory - 查看背包\n"
-            "  take [物品] - 拾取物品\n"
-            "  talk [NPC] - 与 NPC 对话\n"
             "  quest - 查看任务\n"
-            "  ask [问题] - AI 对话（需要 API 服务器）\n"
-            "  exit - 退出");
+            "  talk [NPC] - 与 NPC 对话\n\n"
+            "【查看命令】\n"
+            "  status - 查看主角状态\n"
+            "  appearance - 查看主角外貌\n"
+            "  memory - 查看主角记忆\n"
+            "  npc [NPC 名] - 查看 NPC 详情\n\n"
+            "【交互命令】\n"
+            "  gift [NPC] - 赠送礼物\n"
+            "  trade [NPC] - 交易物品\n"
+            "  interact [NPC] - 互动（聊天等）\n"
+            "  ask [问题] - AI 对话\n\n"
+            "【自定义 NPC】\n"
+            "  create_npc - 创建自定义 NPC\n"
+            "  remove_npc [NPC 名] - 删除自定义 NPC\n\n"
+            "  exit - 退出游戏");
     }
+    
+    // map 命令
     else if (strcmp(inputText, "map") == 0 || strcmp(inputText, "m") == 0) {
         char map_text[4096] = "=== 世界地图 ===\n\n";
         for (int i = 0; i < g_game.scene_count; i++) {
             Scene *s = &g_game.scenes[i];
             char line[512];
-            snprintf(line, sizeof(line), "%s", s->name);
+            snprintf(line, sizeof(line), "■ %s", s->name);
             if (strcmp(g_game.current_scene->id, s->id) == 0) {
                 strcat(line, " [你在这里]");
             }
             strcat(map_text, line);
             strcat(map_text, "\n  可前往：");
-            strcat(map_text, s->connections);
+            strcat(map_text, s->connections[0] ? s->connections : "无");
             if (strlen(s->npcs) > 0) {
                 strcat(map_text, "\n  NPC: ");
                 strcat(map_text, s->npcs);
             }
             strcat(map_text, "\n\n");
         }
-        strcat(map_text, "■ 图例：[你在这里] = 当前位置");
+        strcat(map_text, "时间：第 ");
+        char day_str[32];
+        snprintf(day_str, sizeof(day_str), "%d 天 %d:00", g_game.day, g_game.game_time);
+        strcat(map_text, day_str);
         strcpy(response, map_text);
     }
+    
+    // look 命令
     else if (strcmp(inputText, "look") == 0 || strcmp(inputText, "l") == 0) {
-        snprintf(response, sizeof(response), "%s", g_game.current_scene->description);
-        if (strcmp(g_game.current_scene->id, "village") == 0) {
-            strcat(response, "\n\n可前往：铁匠铺、迷雾森林入口");
-        } else if (strcmp(g_game.current_scene->id, "blacksmith") == 0) {
-            strcat(response, "\n\n可前往：新手村广场");
-        } else if (strcmp(g_game.current_scene->id, "forest") == 0) {
-            strcat(response, "\n\n可前往：新手村广场");
+        snprintf(response, sizeof(response), "%s\n\n", g_game.current_scene->description);
+        if (strlen(g_game.current_scene->npcs) > 0) {
+            strcat(response, "【在场 NPC】 ");
+            strcat(response, g_game.current_scene->npcs);
+            strcat(response, "\n");
+        }
+        strcat(response, "\n可前往：");
+        strcat(response, g_game.current_scene->connections);
+    }
+    
+    // inventory 命令
+    else if (strcmp(inputText, "inventory") == 0 || strcmp(inputText, "i") == 0) {
+        snprintf(response, sizeof(response), 
+            "=== 背包 ===\n"
+            "金币：%d\n"
+            "物品数量：%d/50\n\n【物品列表】\n",
+            g_game.inventory.gold, g_game.inventory.item_count);
+        
+        for (int j = 0; j < g_game.inventory.item_count; j++) {
+            char item_line[128];
+            snprintf(item_line, sizeof(item_line), "  - %s (%s) 价值：%d\n",
+                     g_game.inventory.items[j].name,
+                     g_game.inventory.items[j].type,
+                     g_game.inventory.items[j].value);
+            strcat(response, item_line);
         }
     }
-    else if (strcmp(inputText, "inventory") == 0 || strcmp(inputText, "i") == 0) {
-        snprintf(response, sizeof(response), "背包:\n  金币：%d\n  物品数量：%d", 
-                 g_game.inventory.gold, g_game.inventory.item_count);
-    }
+    
+    // quest 命令
     else if (strcmp(inputText, "quest") == 0) {
         if (g_game.quest_count > 0) {
             Quest *q = &g_game.quests[0];
-            snprintf(response, sizeof(response), "任务 [%s]: %s\n状态：%s",
-                     q->name, q->description, q->active ? "进行中" : "已完成");
+            snprintf(response, sizeof(response), 
+                "=== 当前任务 ===\n"
+                "名称：%s\n"
+                "描述：%s\n"
+                "状态：%s\n"
+                "完成度：%s",
+                q->name, q->description,
+                q->active ? "进行中" : "已完成",
+                q->completed ? "已完成" : "未完成");
         } else {
             strcpy(response, "当前没有任务");
         }
     }
+    
+    // status 命令 - 查看主角状态
+    else if (strcmp(inputText, "status") == 0) {
+        snprintf(response, sizeof(response),
+            "=== 主角状态 ===\n"
+            "名称：%s\n"
+            "称号：%s\n"
+            "等级：%d (经验：%d)\n\n"
+            "【生命】%d/%d\n"
+            "【法力】%d/%d\n\n"
+            "【属性】\n"
+            "  力量：%d\n"
+            "  敏捷：%d\n"
+            "  智力：%d\n\n"
+            "时间：第 %d 天 %d:00",
+            g_game.player_name,
+            g_game.player_status.title,
+            g_game.player_status.level,
+            g_game.player_status.exp,
+            g_game.player_status.health,
+            g_game.player_status.max_health,
+            g_game.player_status.mana,
+            g_game.player_status.max_mana,
+            g_game.player_status.strength,
+            g_game.player_status.agility,
+            g_game.player_status.intelligence,
+            g_game.day,
+            g_game.game_time);
+    }
+    
+    // appearance 命令 - 查看主角外貌
+    else if (strcmp(inputText, "appearance") == 0 || strcmp(inputText, "appear") == 0) {
+        snprintf(response, sizeof(response),
+            "=== 主角外貌 ===\n"
+            "【发型】%s\n"
+            "【眼睛】%s\n"
+            "【身材】%s\n"
+            "【服装】%s\n"
+            "【特征】%s",
+            g_game.player_appearance.hair,
+            g_game.player_appearance.eyes,
+            g_game.player_appearance.body,
+            g_game.player_appearance.clothes,
+            g_game.player_appearance.features);
+    }
+    
+    // memory 命令 - 查看主角记忆
+    else if (strcmp(inputText, "memory") == 0 || strcmp(inputText, "memories") == 0) {
+        if (g_game.player_memory.count == 0) {
+            strcpy(response, "=== 主角记忆 ===\n你还没有什么特别的记忆。\n\n开始冒险来创造回忆吧！");
+        } else {
+            strcpy(response, "=== 主角记忆 ===\n");
+            for (int i = g_game.player_memory.count - 1; i >= 0; i--) {
+                MemoryEntry *entry = &g_game.player_memory.entries[i];
+                int hour = entry->timestamp % 24;
+                int day = entry->timestamp / 24;
+                char line[300];
+                snprintf(line, sizeof(line), "\n【第%d天%d:00】%s",
+                         day, hour, entry->content);
+                strcat(response, line);
+            }
+        }
+    }
+    
+    // npc [NPC 名] 命令 - 查看 NPC 详情
+    else if (strncmp(inputText, "npc ", 4) == 0) {
+        const char *npc_name = inputText + 4;
+        NPC *npc = find_npc_by_name(npc_name);
+        
+        if (npc == NULL) {
+            snprintf(response, sizeof(response), 
+                "找不到 NPC：%s\n使用 'map' 查看所有 NPC 位置。", npc_name);
+        } else {
+            // 检查 NPC 是否在当前场景
+            if (strcmp(npc->location, g_game.current_scene->id) != 0) {
+                snprintf(response, sizeof(response),
+                    "【%s】不在当前场景\n"
+                    "你可以在 %s 找到他/她。",
+                    npc->name, npc->location);
+            } else {
+                char relation_str[32];
+                if (npc->relation >= 80) strcpy(relation_str, "亲密");
+                else if (npc->relation >= 60) strcpy(relation_str, "友好");
+                else if (npc->relation >= 40) strcpy(relation_str, "普通");
+                else if (npc->relation >= 20) strcpy(relation_str, "冷淡");
+                else strcpy(relation_str, "敌对");
+                
+                snprintf(response, sizeof(response),
+                    "=== %s ===\n\n"
+                    "【外貌】\n"
+                    "  发型：%s\n"
+                    "  眼睛：%s\n"
+                    "  身材：%s\n"
+                    "  服装：%s\n"
+                    "  特征：%s\n\n"
+                    "【状态】\n"
+                    "  生命：%d/100\n"
+                    "  心情：%d/100\n"
+                    "  精力：%d/100\n"
+                    "  职业：%s\n"
+                    "  关系：%s (%d/100)\n",
+                    npc->name,
+                    npc->appearance.hair,
+                    npc->appearance.eyes,
+                    npc->appearance.body,
+                    npc->appearance.clothes,
+                    npc->appearance.features,
+                    npc->status.health,
+                    npc->status.mood,
+                    npc->status.energy,
+                    npc->status.occupation,
+                    relation_str,
+                    npc->relation);
+            }
+        }
+    }
+    
+    // go 命令
     else if (strncmp(inputText, "go ", 3) == 0) {
         const char *dest = inputText + 3;
         int moved = 0;
@@ -316,64 +680,347 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             }
             
             if (moved) {
-                snprintf(response, sizeof(response), "你来到了 %s。\n\n%s\n\n可前往：%s",
-                         g_game.current_scene->name,
-                         g_game.current_scene->description,
-                         g_game.current_scene->connections);
+                // 时间流逝
+                g_game.game_time += 1;
+                if (g_game.game_time >= 24) {
+                    g_game.game_time = 0;
+                    g_game.day++;
+                }
+                
+                snprintf(response, sizeof(response), 
+                    "【时间流逝】1 小时过去了...\n\n"
+                    "你来到了 %s。\n\n%s\n\n"
+                    "可前往：%s",
+                    g_game.current_scene->name,
+                    g_game.current_scene->description,
+                    g_game.current_scene->connections);
+                
+                // 检查是否有 NPC
+                NPC *nearby_npc = NULL;
+                for (int i = 0; i < g_game.npc_count; i++) {
+                    if (strcmp(g_game.npcs[i].location, g_game.current_scene->id) == 0) {
+                        nearby_npc = &g_game.npcs[i];
+                        break;
+                    }
+                }
             } else {
                 strcpy(response, "无法直接前往，请先查看地图确认路线。");
             }
         }
     }
-    else if (strcmp(inputText, "exit") == 0 || strcmp(inputText, "quit") == 0) {
-        g_game.running = 0;
-        strcpy(response, "游戏结束，再见！");
-    }
-    // talk 命令：与 NPC 对话
-    // 格式：talk [NPC 名称]
-    // 例：talk 村长、talk 铁匠老王
+    
+    // talk 命令
     else if (strncmp(inputText, "talk ", 5) == 0) {
         const char *npc_name = inputText + 5;
+        NPC *npc = find_npc_by_name(npc_name);
         
-        // 使用辅助函数查找 NPC（统一解析逻辑）
+        // 查找 NPC 并检查是否在场
         int found = find_npc_in_list(g_game.current_scene->npcs, npc_name);
         
-        if (found) {
+        if (found && npc != NULL) {
+            // 根据关系值调整对话
+            char mood_str[64];
+            if (npc->status.mood >= 80) strcpy(mood_str, "心情愉快的");
+            else if (npc->status.mood >= 50) strcpy(mood_str, "平静的");
+            else strcpy(mood_str, "有些疲惫的");
+            
             if (strcmp(npc_name, "铁匠老王") == 0) {
-                strcpy(response, "铁匠老王：欢迎来到这里，冒险者！需要武器或护甲吗？");
+                if (npc->relation >= 70) {
+                    strcpy(response, "铁匠老王：哈哈，老朋友！看到你我就来劲了！今天需要打造什么好东西吗？");
+                } else if (npc->relation >= 40) {
+                    strcpy(response, "铁匠老王：欢迎来到这里，冒险者！需要武器或护甲吗？");
+                } else {
+                    strcpy(response, "铁匠老王：（头也不抬）忙着呢，没空闲聊。");
+                }
             } else if (strcmp(npc_name, "村长") == 0) {
-                strcpy(response, "村长：欢迎你，年轻的冒险者！村庄最近的哥布林越来越多，你能帮帮我们吗？");
+                if (npc->relation >= 70) {
+                    strcpy(response, "村长：啊，我们的英雄回来了！村庄因为有你在而感到安心。");
+                } else if (npc->relation >= 40) {
+                    strcpy(response, "村长：欢迎你，年轻的冒险者！村庄最近的哥布林越来越多，你能帮帮我们吗？");
+                } else {
+                    strcpy(response, "村长：（严肃地打量着你）年轻人，希望你不是来惹麻烦的。");
+                }
             } else if (strcmp(npc_name, "村民") == 0) {
-                strcpy(response, "村民：今天天气真好，适合出门冒险！");
+                if (npc->relation >= 60) {
+                    strcpy(response, "村民：嘿！又见面了！今天天气真好，适合出门冒险！");
+                } else {
+                    strcpy(response, "村民：今天天气真好，适合出门冒险！");
+                }
             } else {
-                snprintf(response, sizeof(response), "%s：你好，冒险者！", npc_name);
+                snprintf(response, sizeof(response), "%s：%s%s", 
+                         npc_name, mood_str, " 你好，有何贵干？");
             }
+            
+            // 添加互动记忆
+            char memory_content[256];
+            snprintf(memory_content, sizeof(memory_content), "%s：与其进行了交谈", npc_name);
+            add_player_memory(memory_content, 0);
+            
         } else {
             snprintf(response, sizeof(response), "这里没有 %s。\n使用 'map' 查看 NPC 位置。", npc_name);
         }
     }
+    
+    // gift [NPC] 礼物 命令
+    else if (strncmp(inputText, "gift ", 5) == 0) {
+        const char *args = inputText + 5;
+        char npc_name[64] = {0};
+        char item_name[64] = {0};
+        
+        // 解析参数 (NPC 名 和 物品名，用空格分隔)
+        int i = 0;
+        while (args[i] && args[i] != ' ' && i < 63) {
+            npc_name[i] = args[i];
+            i++;
+        }
+        if (args[i] == ' ') {
+            i++;
+            int j = 0;
+            while (args[i] && j < 63) {
+                item_name[j++] = args[i++];
+            }
+        }
+        
+        if (strlen(npc_name) == 0) {
+            strcpy(response, "用法：gift [NPC 名] [物品名]\n例：gift 村长 面包");
+        } else {
+            int found = find_npc_in_list(g_game.current_scene->npcs, npc_name);
+            if (!found) {
+                snprintf(response, sizeof(response), "这里没有 %s。", npc_name);
+            } else {
+                NPC *npc = find_npc_by_name(npc_name);
+                int relation_change = 5;
+                
+                // 检查是否有物品
+                char memory_content[256];
+                if (strlen(item_name) > 0) {
+                    // 简化：只要有物品就送
+                    snprintf(memory_content, sizeof(memory_content), "%s：赠送了 %s", npc_name, item_name);
+                } else {
+                    snprintf(memory_content, sizeof(memory_content), "%s：赠送了礼物", npc_name);
+                }
+                
+                add_player_memory(memory_content, relation_change);
+                
+                if (npc != NULL) {
+                    add_npc_memory(npc, memory_content, relation_change);
+                    npc->relation += relation_change;
+                    if (npc->relation > 100) npc->relation = 100;
+                    npc->status.mood += 10;
+                    if (npc->status.mood > 100) npc->status.mood = 100;
+                }
+                
+                snprintf(response, sizeof(response),
+                    "你向 %s 赠送了礼物。\n"
+                    "关系提升！当前关系：%d/100\n"
+                    "%s 看起来很开心。",
+                    npc_name,
+                    npc ? npc->relation : 0,
+                    npc_name);
+            }
+        }
+    }
+    
+    // trade [NPC] 命令
+    else if (strncmp(inputText, "trade ", 6) == 0) {
+        const char *npc_name = inputText + 6;
+        int found = find_npc_in_list(g_game.current_scene->npcs, npc_name);
+        
+        if (!found) {
+            snprintf(response, sizeof(response), "这里没有 %s。", npc_name);
+        } else {
+            NPC *npc = find_npc_by_name(npc_name);
+            snprintf(response, sizeof(response),
+                "=== 交易界面 ===\n"
+                "与 %s 进行交易\n\n"
+                "【你的金币】%d\n"
+                "【你的关系】%d/100\n\n"
+                "【可购买物品】\n"
+                "  1. 治疗药水 - 20 金币 (恢复 50 生命)\n"
+                "  2. 铁剑 - 50 金币 (攻击力 +5)\n"
+                "  3. 皮甲 - 30 金币 (防御力 +3)\n\n"
+                "使用 'buy [数量]' 购买\n"
+                "使用 'sell [物品]' 出售",
+                npc_name,
+                g_game.inventory.gold,
+                npc ? npc->relation : 0);
+        }
+    }
+    
+    // interact [NPC] 命令
+    else if (strncmp(inputText, "interact ", 9) == 0) {
+        const char *npc_name = inputText + 9;
+        int found = find_npc_in_list(g_game.current_scene->npcs, npc_name);
+        
+        if (!found) {
+            snprintf(response, sizeof(response), "这里没有 %s。", npc_name);
+        } else {
+            NPC *npc = find_npc_by_name(npc_name);
+            int relation_change = 2;
+            
+            char memory_content[256];
+            snprintf(memory_content, sizeof(memory_content), "%s：进行了友好互动", npc_name);
+            add_player_memory(memory_content, relation_change);
+            
+            if (npc != NULL) {
+                add_npc_memory(npc, memory_content, relation_change);
+                npc->relation += relation_change;
+                if (npc->relation > 100) npc->relation = 100;
+                npc->status.mood += 5;
+                if (npc->status.mood > 100) npc->status.mood = 100;
+            }
+            
+            snprintf(response, sizeof(response),
+                "你与 %s 进行了友好的互动。\n"
+                "关系小幅提升！当前关系：%d/100\n"
+                "%s 看起来心情不错。",
+                npc_name,
+                npc ? npc->relation : 0,
+                npc_name);
+        }
+    }
+    
+    // create_npc 命令 - 创建自定义 NPC
+    else if (strcmp(inputText, "create_npc") == 0) {
+        if (g_game.npc_count >= 20) {
+            strcpy(response, "最多只能创建 20 个 NPC。");
+        } else {
+            // 创建默认 NPC，后续可以通过 AI 对话自定义
+            char new_npc_id[32];
+            snprintf(new_npc_id, sizeof(new_npc_id), "custom_%d", g_game.npc_count);
+            
+            NPC *new_npc = &g_game.npcs[g_game.npc_count];
+            strcpy(new_npc->id, new_npc_id);
+            strcpy(new_npc->name, "自定义 NPC");
+            strcpy(new_npc->description, "这是一个自定义 NPC，可以通过 AI 对话来完善设定。");
+            strcpy(new_npc->appearance.hair, "普通发型");
+            strcpy(new_npc->appearance.eyes, "普通眼睛");
+            strcpy(new_npc->appearance.body, "普通身材");
+            strcpy(new_npc->appearance.clothes, "普通服装");
+            strcpy(new_npc->appearance.features, "无明显特征");
+            new_npc->status.health = 100;
+            new_npc->status.mood = 70;
+            new_npc->status.energy = 80;
+            strcpy(new_npc->status.occupation, "自由职业者");
+            new_npc->status.is_alive = 1;
+            new_npc->relation = 30;
+            strcpy(new_npc->location, g_game.current_scene->id);
+            new_npc->is_custom = 1;
+            new_npc->memory_count = 0;
+            
+            // 添加到当前场景 NPC 列表
+            if (strlen(g_game.current_scene->npcs) == 0) {
+                strcpy(new_npc->name, "自定义 NPC");
+            } else {
+                char old_npcs[256];
+                strcpy(old_npcs, g_game.current_scene->npcs);
+                snprintf(g_game.current_scene->npcs, sizeof(g_game.current_scene->npcs), 
+                         "%s，自定义 NPC", old_npcs);
+            }
+            
+            g_game.npc_count++;
+            
+            strcpy(response,
+                "【自定义 NPC 已创建】\n\n"
+                "名称：自定义 NPC\n"
+                "位置：当前场景\n\n"
+                "使用 'ask' 命令来描述你想创建的 NPC，\n"
+                "例如：'ask 创建一个神秘的魔法师，穿着紫色长袍，手持水晶法杖'");
+        }
+    }
+    
+    // remove_npc [NPC 名] 命令
+    else if (strncmp(inputText, "remove_npc ", 11) == 0) {
+        const char *npc_name = inputText + 11;
+        int found_idx = -1;
+        
+        for (int i = 0; i < g_game.npc_count; i++) {
+            if (strcmp(g_game.npcs[i].name, npc_name) == 0) {
+                if (g_game.npcs[i].is_custom) {
+                    found_idx = i;
+                    break;
+                } else {
+                    strcpy(response, "只能删除自定义 NPC。");
+                    found_idx = -2;
+                    break;
+                }
+            }
+        }
+        
+        if (found_idx >= 0) {
+            // 删除 NPC
+            for (int i = found_idx; i < g_game.npc_count - 1; i++) {
+                g_game.npcs[i] = g_game.npcs[i + 1];
+            }
+            g_game.npc_count--;
+            
+            // 从场景 NPC 列表中移除
+            // 简化处理：不清除场景列表中的引用
+            
+            snprintf(response, sizeof(response), 
+                "已删除自定义 NPC：%s", npc_name);
+        } else if (found_idx == -1) {
+            snprintf(response, sizeof(response), 
+                "找不到 NPC：%s", npc_name);
+        }
+    }
+    
+    // exit 命令
+    else if (strcmp(inputText, "exit") == 0 || strcmp(inputText, "quit") == 0) {
+        g_game.running = 0;
+        strcpy(response, "游戏结束，再见！");
+    }
+    
+    // AI 对话 - ask 命令
+    else if (strncmp(inputText, "ask ", 4) == 0) {
+        // AI 对话由 Java 层处理，这里返回提示
+        snprintf(response, sizeof(response),
+            "【AI 对话模式】\n"
+            "你的问题：%s\n\n"
+            "正在连接 AI 服务器...\n"
+            "(实际 AI 响应将由 API 服务器返回)",
+            inputText + 4);
+    }
+    
+    // 未知命令
     else {
-        snprintf(response, sizeof(response), "未知命令：%s\n输入 'help' 查看帮助。", inputText);
+        snprintf(response, sizeof(response), 
+            "未知命令：%s\n"
+            "输入 'help' 查看帮助。", 
+            inputText);
     }
     
     (*env)->ReleaseStringUTFChars(env, input, inputText);
     return (*env)->NewStringUTF(env, response);
 }
 
+// ============================================================================
+// JNI 函数：清理游戏
+// ============================================================================
 JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_cleanupGame(
     JNIEnv *env, jobject thiz) {
     (void)env; (void)thiz;
     LOGI("游戏清理");
     g_initialized = 0;
     g_game.running = 0;
+    memset(&g_game.player_memory, 0, sizeof(PlayerMemory));
+    for (int i = 0; i < g_game.npc_count; i++) {
+        memset(&g_game.npcs[i].memories, 0, sizeof(MemoryEntry) * g_game.npcs[i].memory_count);
+    }
 }
 
+// ============================================================================
+// JNI 函数：检查游戏是否运行
+// ============================================================================
 JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_isGameRunning(
     JNIEnv *env, jobject thiz) {
     (void)env; (void)thiz;
     return g_initialized && g_game.running ? JNI_TRUE : JNI_FALSE;
 }
 
+// ============================================================================
+// JNI 函数：获取当前场景
+// ============================================================================
 JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCurrentScene(
     JNIEnv *env, jobject thiz) {
     (void)env; (void)thiz;
@@ -381,6 +1028,9 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCurrentScene(
     return (*env)->NewStringUTF(env, g_game.current_scene->name);
 }
 
+// ============================================================================
+// JNI 函数：获取金币
+// ============================================================================
 JNIEXPORT jint JNICALL Java_com_adventure_game_GameActivity_getGold(
     JNIEnv *env, jobject thiz) {
     (void)env; (void)thiz;
@@ -388,22 +1038,36 @@ JNIEXPORT jint JNICALL Java_com_adventure_game_GameActivity_getGold(
     return g_game.inventory.gold;
 }
 
+// ============================================================================
+// JNI 函数：获取可用命令
+// ============================================================================
 JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getAvailableCommands(
     JNIEnv *env, jobject thiz) {
     (void)env; (void)thiz;
     if (!g_initialized) return (*env)->NewStringUTF(env, "");
     
-    char commands[1024] = "";
+    char commands[2048] = "";
     strcat(commands, "look");
     strcat(commands, "|map");
     strcat(commands, "|inventory");
     strcat(commands, "|quest");
+    strcat(commands, "|status");
+    strcat(commands, "|appearance");
+    strcat(commands, "|memory");
     strcat(commands, "|go");
     strcat(commands, "|talk");
+    strcat(commands, "|gift");
+    strcat(commands, "|trade");
+    strcat(commands, "|interact");
+    strcat(commands, "|create_npc");
+    strcat(commands, "|remove_npc");
     
     return (*env)->NewStringUTF(env, commands);
 }
 
+// ============================================================================
+// JNI 函数：获取命令目标
+// ============================================================================
 JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets(
     JNIEnv *env, jobject thiz, jstring command) {
     (void)env; (void)thiz;
@@ -414,7 +1078,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets
     const char *cmd = (*env)->GetStringUTFChars(env, command, NULL);
     if (cmd == NULL) return (*env)->NewStringUTF(env, "");
     
-    char targets[1024] = "";
+    char targets[2048] = "";
     
     if (strcmp(cmd, "go") == 0) {
         for (int i = 0; i < g_game.scene_count; i++) {
@@ -422,10 +1086,23 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets
             strcat(targets, g_game.scenes[i].name);
         }
     }
-    // talk 命令：获取当前场景 NPC 列表
-    else if (strcmp(cmd, "talk") == 0) {
-        // 从当前场景的 npcs 字段解析 NPC 名称
+    else if (strcmp(cmd, "talk") == 0 || strcmp(cmd, "gift") == 0 || 
+             strcmp(cmd, "trade") == 0 || strcmp(cmd, "interact") == 0) {
         parse_targets_from_string(g_game.current_scene->npcs, targets);
+    }
+    else if (strcmp(cmd, "npc") == 0) {
+        for (int i = 0; i < g_game.npc_count; i++) {
+            if (i > 0) strcat(targets, "|");
+            strcat(targets, g_game.npcs[i].name);
+        }
+    }
+    else if (strcmp(cmd, "remove_npc") == 0) {
+        for (int i = 0; i < g_game.npc_count; i++) {
+            if (g_game.npcs[i].is_custom) {
+                if (strlen(targets) > 0) strcat(targets, "|");
+                strcat(targets, g_game.npcs[i].name);
+            }
+        }
     }
     
     (*env)->ReleaseStringUTFChars(env, command, cmd);

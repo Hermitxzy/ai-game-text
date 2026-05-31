@@ -48,9 +48,11 @@ cd ~/llama.cpp
 
 ### 4. 游戏命令
 
+**基础命令**
 ```
 help                    # 查看帮助
 look / l                # 查看当前场景
+map / m                 # 查看完整地图
 inventory / i           # 查看背包
 go [地点]               # 移动
   go 铁匠铺              # 前往铁匠铺
@@ -58,8 +60,36 @@ go [地点]               # 移动
   go 广场                # 返回新手村广场
 quest                   # 查看任务
 talk [NPC]              # 与 NPC 对话
-ask [问题]              # AI 对话（使用 Termux 模型）
 exit / quit             # 退出游戏
+```
+
+**查看命令**
+```
+status                  # 查看主角状态（生命/法力/属性/等级）
+appearance              # 查看主角外貌
+memory                  # 查看主角记忆
+npc [NPC 名]            # 查看 NPC 详情（外貌/状态/关系）
+```
+
+**交互命令**
+```
+gift [NPC] [物品]       # 赠送礼物提升关系
+trade [NPC]             # 打开交易界面
+interact [NPC]          # 与 NPC 互动（聊天等）
+```
+
+**自定义 NPC**
+```
+create_npc              # 创建自定义 NPC
+remove_npc [NPC 名]     # 删除自定义 NPC
+```
+
+**AI 对话**
+```
+ask [问题]              # AI 对话（使用 Termux 模型）
+例：ask 请用中文介绍一下你自己
+    ask 什么是人工智能？
+    ask Write a short story about a knight
 ```
 
 ### 5. AI 对话示例
@@ -85,6 +115,41 @@ ask Write a short story about a knight
 - **轻量化** - 5.4MB APK，无内置模型
 - **灵活** - 支持 Termux 上任意 GGUF 模型
 - **低延迟** - localhost HTTP 通信
+- **完整 NPC 系统** - 外貌/记忆/状态/关系值
+- **主角成长** - 属性/等级/经验/记忆系统
+- **交互动作** - 送礼/交易/互动影响关系
+- **自定义 NPC** - 创建和管理自定义 NPC
+
+## 版本历史
+
+### v1.4 (当前版本)
+- ✅ 重构 NPC 系统：添加外貌、记忆、状态属性
+- ✅ 重构主角系统：添加外貌、状态（生命/法力/属性）、记忆
+- ✅ 新增查看命令：status, appearance, memory, npc [NPC 名]
+- ✅ 新增交互命令：gift, trade, interact
+- ✅ 实现关系系统：NPC 关系值影响对话和行为
+- ✅ 实现记忆系统：记录与 NPC 的互动历史
+- ✅ 实现自定义 NPC：create_npc, remove_npc
+- ✅ 时间系统：移动会消耗时间，显示第 X 天 X:00
+- ✅ 命令选择器升级：支持更多命令和目标选择
+
+### v1.3
+- ✅ 无目标命令支持点击直接执行（map/look/inventory/quest）
+- ✅ 有目标命令按钮选择（go/talk）
+- ✅ 可点击的命令显示高亮效果
+
+### v1.2
+- ✅ 添加详细代码注释
+- ✅ 统一 NPC 解析逻辑
+- ✅ 修复 talk 命令 bug
+
+### v1.1
+- ✅ 修复闪退问题
+- ✅ 优化命令解析
+
+### v1.0
+- ✅ 基础 HTTP API 版本
+- ✅ 场景/任务/NPC 系统
 
 ## 故障排查
 

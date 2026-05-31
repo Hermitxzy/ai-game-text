@@ -134,8 +134,14 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
             String cmd = availableCommands[currentCommandIndex];
             commandText.setText(cmd);
             
-            // 对于无目标命令，点击直接发送
-            if (!cmd.equals("go") && !cmd.equals("talk")) {
+            // 对于不需要目标的命令，点击直接发送
+            // 需要目标的命令：go, talk, gift, trade, interact, npc, remove_npc
+            boolean needsTarget = cmd.equals("go") || cmd.equals("talk") || 
+                                  cmd.equals("gift") || cmd.equals("trade") || 
+                                  cmd.equals("interact") || cmd.equals("npc") || 
+                                  cmd.equals("remove_npc");
+            
+            if (!needsTarget) {
                 commandText.setOnClickListener(v -> {
                     inputText.setText(cmd);
                     sendMessage();
@@ -159,7 +165,11 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         currentTargetIndex = -1;
         targetContainer.removeAllViews();
         
-        if (command.equals("go") || command.equals("talk")) {
+        // 需要目标的命令：go, talk, gift, trade, interact, npc, remove_npc
+        if (command.equals("go") || command.equals("talk") || 
+            command.equals("gift") || command.equals("trade") || 
+            command.equals("interact") || command.equals("npc") || 
+            command.equals("remove_npc")) {
             String targets = getCommandTargets(command);
             if (!TextUtils.isEmpty(targets)) {
                 availableTargets = targets.split("\\|");
