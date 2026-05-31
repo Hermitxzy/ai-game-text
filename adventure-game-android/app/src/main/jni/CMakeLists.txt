@@ -9,11 +9,6 @@ add_library(adventure-game SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/game_android.c
 )
 
-# 添加头文件路径
-target_include_directories(adventure-game PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
 # 链接系统库
 target_link_libraries(adventure-game
     PRIVATE
