@@ -8,7 +8,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="文字冒险游戏 v1.0"
+        android:text="文字冒险游戏 v1.4"
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="#ffffff"
@@ -36,6 +36,7 @@
 
     </ScrollView>
 
+    <!-- 快捷命令按钮区域 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -43,45 +44,252 @@
         android:padding="8dp"
         android:background="#2a2a4e">
 
+        <!-- 第一行：最常用命令 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="8dp">
+            android:gravity="center"
+            android:layout_marginBottom="6dp">
 
             <Button
-                android:id="@+id/prevBtn"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:text="←"
-                android:textSize="20sp"
-                android:backgroundTint="#4a4a6a" />
-
-            <TextView
-                android:id="@+id/commandText"
+                android:id="@+id/btnLook"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="42dp"
                 android:layout_weight="1"
-                android:text="命令选择"
-                android:textSize="16sp"
-                android:textColor="#ffffff"
-                android:gravity="center"
-                android:padding="12dp"
-                android:background="#3a3a5a"
-                android:clickable="true"
-                android:focusable="true" />
+                android:text="查看"
+                android:textSize="13sp"
+                android:backgroundTint="#4a4a6a"
+                android:layout_marginEnd="4dp" />
 
             <Button
-                android:id="@+id/nextBtn"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:text="→"
-                android:textSize="20sp"
+                android:id="@+id/btnMap"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="地图"
+                android:textSize="13sp"
+                android:backgroundTint="#4a4a6a"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnInventory"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="背包"
+                android:textSize="13sp"
+                android:backgroundTint="#4a4a6a"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnStatus"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="状态"
+                android:textSize="13sp"
                 android:backgroundTint="#4a4a6a" />
 
         </LinearLayout>
 
+        <!-- 第二行：其他常用命令 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="8dp">
+
+            <Button
+                android:id="@+id/btnQuest"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="任务"
+                android:textSize="13sp"
+                android:backgroundTint="#4a4a6a"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnTalk"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="对话"
+                android:textSize="13sp"
+                android:backgroundTint="#4a4a6a"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnMore"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="更多 ▼"
+                android:textSize="13sp"
+                android:backgroundTint="#5a5a7a" />
+
+        </LinearLayout>
+
+        <!-- 更多命令面板（默认隐藏） -->
+        <LinearLayout
+            android:id="@+id/morePanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp"
+            android:padding="8dp"
+            android:background="#3a3a5a">
+
+            <!-- 查看类 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="【查看】"
+                android:textColor="#aaaacc"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/btnAppearance"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="外貌"
+                    android:textSize="12sp"
+                    android:backgroundTint="#4a4a6a"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btnMemory"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="记忆"
+                    android:textSize="12sp"
+                    android:backgroundTint="#4a4a6a" />
+
+            </LinearLayout>
+
+            <!-- 移动 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="【移动】"
+                android:textColor="#aaaacc"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/btnGo"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="前往"
+                    android:textSize="12sp"
+                    android:backgroundTint="#4a4a6a"
+                    android:layout_marginEnd="4dp" />
+
+            </LinearLayout>
+
+            <!-- 交互类 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="【交互】"
+                android:textColor="#aaaacc"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/btnGift"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="送礼"
+                    android:textSize="12sp"
+                    android:backgroundTint="#4a4a6a"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btnTrade"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="交易"
+                    android:textSize="12sp"
+                    android:backgroundTint="#4a4a6a"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btnInteract"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="互动"
+                    android:textSize="12sp"
+                    android:backgroundTint="#4a4a6a" />
+
+            </LinearLayout>
+
+            <!-- 自定义 NPC -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="【自定义】"
+                android:textColor="#aaaacc"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnCreateNpc"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="创建 NPC"
+                    android:textSize="12sp"
+                    android:backgroundTint="#4a4a6a"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btnRemoveNpc"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="删除 NPC"
+                    android:textSize="12sp"
+                    android:backgroundTint="#4a4a6a" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- 目标选择区域 -->
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -97,6 +305,7 @@
 
         </HorizontalScrollView>
 
+        <!-- 输入区域 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

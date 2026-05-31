@@ -27,18 +27,27 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     private EditText inputText;
     private Button sendBtn;
     private ScrollView scrollView;
-    private Button prevBtn;
-    private Button nextBtn;
-    private TextView commandText;
+    
+    // 快捷按钮
+    private Button btnLook, btnMap, btnInventory, btnStatus;
+    private Button btnQuest, btnTalk, btnMore;
+    
+    // 更多命令面板按钮
+    private LinearLayout morePanel;
+    private Button btnAppearance, btnMemory, btnGo;
+    private Button btnGift, btnTrade, btnInteract;
+    private Button btnCreateNpc, btnRemoveNpc;
+    
+    // 目标选择
     private LinearLayout targetContainer;
     
     private Handler handler = new Handler(Looper.getMainLooper());
     private boolean apiAvailable = false;
     
-    private String[] availableCommands = {};
-    private int currentCommandIndex = -1;
     private String[] availableTargets = {};
     private int currentTargetIndex = -1;
+    private String currentCommand = "";
+    private boolean morePanelVisible = false;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +61,6 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         }
         
         initViews();
-        loadAvailableCommands();
         
         String modelPath = getIntent().getStringExtra("model_path");
         boolean gameInit = false;
@@ -62,8 +70,6 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
             e.printStackTrace();
         }
         final boolean finalGameInit = gameInit;
-        
-        loadAvailableCommands();
         
         onGameOutput("正在启动...\n检查 API 服务器...\n");
         
@@ -91,7 +97,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 
                 if (finalGameInit) {
-                    sb.append("\n游戏已加载！使用 ← → 按钮或输入命令\n");
+                    sb.append("\n游戏已加载！点击快捷按钮或输入命令\n");
                 }
                 
                 onGameOutput(sb.toString());
@@ -104,15 +110,47 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         inputText = findViewById(R.id.gameInput);
         sendBtn = findViewById(R.id.sendBtn);
         scrollView = findViewById(R.id.scrollView);
-        prevBtn = findViewById(R.id.prevBtn);
-        nextBtn = findViewById(R.id.nextBtn);
-        commandText = findViewById(R.id.commandText);
         targetContainer = findViewById(R.id.targetContainer);
         
+        // 快捷按钮
+        btnLook = findViewById(R.id.btnLook);
+        btnMap = findViewById(R.id.btnMap);
+        btnInventory = findViewById(R.id.btnInventory);
+        btnStatus = findViewById(R.id.btnStatus);
+        btnQuest = findViewById(R.id.btnQuest);
+        btnTalk = findViewById(R.id.btnTalk);
+        btnMore = findViewById(R.id.btnMore);
+        
+        // 更多命令面板
+        morePanel = findViewById(R.id.morePanel);
+        btnAppearance = findViewById(R.id.btnAppearance);
+        btnMemory = findViewById(R.id.btnMemory);
+        btnGo = findViewById(R.id.btnGo);
+        btnGift = findViewById(R.id.btnGift);
+        btnTrade = findViewById(R.id.btnTrade);
+        btnInteract = findViewById(R.id.btnInteract);
+        btnCreateNpc = findViewById(R.id.btnCreateNpc);
+        btnRemoveNpc = findViewById(R.id.btnRemoveNpc);
+        
         outputText.setMovementMethod(new ScrollingMovementMethod());
+        
+        // 绑定点击事件
         sendBtn.setOnClickListener(this);
-        prevBtn.setOnClickListener(this);
-        nextBtn.setOnClickListener(this);
+        btnLook.setOnClickListener(this);
+        btnMap.setOnClickListener(this);
+        btnInventory.setOnClickListener(this);
+        btnStatus.setOnClickListener(this);
+        btnQuest.setOnClickListener(this);
+        btnTalk.setOnClickListener(this);
+        btnMore.setOnClickListener(this);
+        btnAppearance.setOnClickListener(this);
+        btnMemory.setOnClickListener(this);
+        btnGo.setOnClickListener(this);
+        btnGift.setOnClickListener(this);
+        btnTrade.setOnClickListener(this);
+        btnInteract.setOnClickListener(this);
+        btnCreateNpc.setOnClickListener(this);
+        btnRemoveNpc.setOnClickListener(this);
         
         inputText.setOnEditorActionListener((v, actionId, event) -> {
             sendMessage();
@@ -120,52 +158,12 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
     
-    private void loadAvailableCommands() {
-        String commands = getAvailableCommands();
-        if (!TextUtils.isEmpty(commands)) {
-            availableCommands = commands.split("\\|");
-            currentCommandIndex = 0;
-            updateCommandText();
-        }
-    }
-    
-    private void updateCommandText() {
-        if (currentCommandIndex >= 0 && currentCommandIndex < availableCommands.length) {
-            String cmd = availableCommands[currentCommandIndex];
-            commandText.setText(cmd);
-            
-            // 对于不需要目标的命令，点击直接发送
-            // 需要目标的命令：go, talk, gift, trade, interact, npc, remove_npc
-            boolean needsTarget = cmd.equals("go") || cmd.equals("talk") || 
-                                  cmd.equals("gift") || cmd.equals("trade") || 
-                                  cmd.equals("interact") || cmd.equals("npc") || 
-                                  cmd.equals("remove_npc");
-            
-            if (!needsTarget) {
-                commandText.setOnClickListener(v -> {
-                    inputText.setText(cmd);
-                    sendMessage();
-                });
-                commandText.setClickable(true);
-            } else {
-                commandText.setOnClickListener(null);
-                commandText.setClickable(false);
-            }
-            
-            loadTargetsForCommand(cmd);
-        } else {
-            commandText.setText("命令选择");
-            commandText.setOnClickListener(null);
-            commandText.setClickable(false);
-        }
-    }
-    
     private void loadTargetsForCommand(String command) {
         availableTargets = new String[0];
         currentTargetIndex = -1;
         targetContainer.removeAllViews();
         
-        // 需要目标的命令：go, talk, gift, trade, interact, npc, remove_npc
+        // 需要目标的命令
         if (command.equals("go") || command.equals("talk") || 
             command.equals("gift") || command.equals("trade") || 
             command.equals("interact") || command.equals("npc") || 
@@ -209,33 +207,93 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     private void selectTarget(int index) {
         if (index < 0 || index >= availableTargets.length) return;
         
-        String cmd = availableCommands.length > 0 && currentCommandIndex >= 0 && currentCommandIndex < availableCommands.length 
-            ? availableCommands[currentCommandIndex] : "";
-        if (!cmd.isEmpty()) {
+        if (!currentCommand.isEmpty()) {
             String target = availableTargets[index];
-            inputText.setText(cmd + " " + target);
+            inputText.setText(currentCommand + " " + target);
         }
     }
     
     @Override
     public void onClick(View v) {
         int id = v.getId();
+        
         if (id == R.id.sendBtn) {
             sendMessage();
-        } else if (id == R.id.prevBtn) {
-            switchTarget(-1);
-        } else if (id == R.id.nextBtn) {
-            switchTarget(1);
+        }
+        else if (id == R.id.btnLook) {
+            executeCommand("look");
+        }
+        else if (id == R.id.btnMap) {
+            executeCommand("map");
+        }
+        else if (id == R.id.btnInventory) {
+            executeCommand("inventory");
+        }
+        else if (id == R.id.btnStatus) {
+            executeCommand("status");
+        }
+        else if (id == R.id.btnQuest) {
+            executeCommand("quest");
+        }
+        else if (id == R.id.btnTalk) {
+            currentCommand = "talk";
+            loadTargetsForCommand("talk");
+            inputText.setText("talk ");
+            inputText.requestFocus();
+        }
+        else if (id == R.id.btnMore) {
+            toggleMorePanel();
+        }
+        else if (id == R.id.btnAppearance) {
+            executeCommand("appearance");
+        }
+        else if (id == R.id.btnMemory) {
+            executeCommand("memory");
+        }
+        else if (id == R.id.btnGo) {
+            currentCommand = "go";
+            loadTargetsForCommand("go");
+            inputText.setText("go ");
+            inputText.requestFocus();
+        }
+        else if (id == R.id.btnGift) {
+            currentCommand = "gift";
+            loadTargetsForCommand("gift");
+            inputText.setText("gift ");
+            inputText.requestFocus();
+        }
+        else if (id == R.id.btnTrade) {
+            currentCommand = "trade";
+            loadTargetsForCommand("trade");
+            inputText.setText("trade ");
+            inputText.requestFocus();
+        }
+        else if (id == R.id.btnInteract) {
+            currentCommand = "interact";
+            loadTargetsForCommand("interact");
+            inputText.setText("interact ");
+            inputText.requestFocus();
+        }
+        else if (id == R.id.btnCreateNpc) {
+            executeCommand("create_npc");
+        }
+        else if (id == R.id.btnRemoveNpc) {
+            currentCommand = "remove_npc";
+            loadTargetsForCommand("remove_npc");
+            inputText.setText("remove_npc ");
+            inputText.requestFocus();
         }
     }
     
-    private void switchTarget(int direction) {
-        if (availableCommands.length > 1) {
-            currentCommandIndex += direction;
-            if (currentCommandIndex < 0) currentCommandIndex = availableCommands.length - 1;
-            if (currentCommandIndex >= availableCommands.length) currentCommandIndex = 0;
-            updateCommandText();
-        }
+    private void executeCommand(String cmd) {
+        inputText.setText(cmd);
+        sendMessage();
+    }
+    
+    private void toggleMorePanel() {
+        morePanelVisible = !morePanelVisible;
+        morePanel.setVisibility(morePanelVisible ? View.VISIBLE : View.GONE);
+        btnMore.setText(morePanelVisible ? "更多 ▲" : "更多 ▼");
     }
     
     private void sendMessage() {
@@ -252,48 +310,54 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         } else {
             String response = processInput(input);
             onGameOutput(response);
-            loadAvailableCommands();
+            loadAvailableTargets();
+        }
+        
+        scrollView.post(() -> {
+            scrollView.fullScroll(ScrollView.FOCUS_DOWN);
+        });
+    }
+    
+    private void loadAvailableTargets() {
+        // 根据当前输入更新目标
+        if (!currentCommand.isEmpty()) {
+            loadTargetsForCommand(currentCommand);
         }
     }
     
     private void handleAskCommand(String question) {
-        onGameOutput("\n思考中...\n");
-        
         new Thread(() -> {
-            String response = ApiClient.generateResponse(question, 256);
-            runOnUiThread(() -> {
-                onGameOutput("AI: " + response + "\n\n");
-            });
+            try {
+                String response = ApiClient.sendRequest(question);
+                runOnUiThread(() -> {
+                    if (response != null) {
+                        onGameOutput("\nAI: " + response);
+                    } else {
+                        onGameOutput("\nAI 服务器无响应");
+                    }
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    onGameOutput("\nAI 请求失败：" + e.getMessage());
+                });
+            }
         }).start();
     }
     
-    public void onGameOutput(final String text) {
+    private void onGameOutput(String text) {
         runOnUiThread(() -> {
-            if (!TextUtils.isEmpty(text)) {
-                outputText.append(text);
-                if (!text.endsWith("\n")) {
-                    outputText.append("\n");
-                }
-                scrollView.post(() -> {
-                    scrollView.fullScroll(View.FOCUS_DOWN);
-                });
-            }
+            String current = outputText.getText().toString();
+            outputText.setText(current + text + "\n");
         });
     }
     
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        cleanupGame();
-    }
-    
-    // JNI 方法
-    private native boolean initGame(String modelPath);
-    private native String processInput(String input);
-    private native void cleanupGame();
-    private native boolean isGameRunning();
-    private native String getCurrentScene();
-    private native int getGold();
-    private native String getAvailableCommands();
-    private native String getCommandTargets(String command);
+    // JNI 函数声明
+    public native boolean initGame(String modelPath);
+    public native String processInput(String input);
+    public native void cleanupGame();
+    public native boolean isGameRunning();
+    public native String getCurrentScene();
+    public native int getGold();
+    public native String getAvailableCommands();
+    public native String getCommandTargets(String command);
 }

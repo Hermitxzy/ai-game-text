@@ -157,4 +157,8 @@ public class ApiClient {
             }
         }
     }
+    
+    public static String sendRequest(String prompt) {
+        return generateResponse(prompt, 500);
+    }
 }
