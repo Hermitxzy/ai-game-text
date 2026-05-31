@@ -13,7 +13,7 @@ adventure-game-android/
 │       │   ├── GameActivity.java      # 游戏主界面
 │       │   └── ApiClient.java         # HTTP API 客户端
 │       ├── jni/
-│       │   ├── game_android.c         # 游戏核心逻辑（JNI）
+│       │   ├── game_android.c         # 游戏核心逻辑（JNI，2170 行）
 │       │   └── CMakeLists.txt         # CMake 配置
 │       └── res/layout/
 │           ├── activity_main.xml      # 主界面布局
@@ -78,6 +78,11 @@ cd ~/llama.cpp
 - 设置 NPC - 修改自定义 NPC 属性
 - 删除 NPC - 删除自定义 NPC
 
+存档：
+- 保存 - 保存游戏到当前槽位
+- 读取 - 从当前槽位读取存档
+- 列表 - 查看所有存档状态
+
 **输入框**
 - 可手动输入命令（如 AI 对话）
 - 选择目标后自动填充命令
@@ -128,6 +133,19 @@ remove_npc [NPC 名]     # 删除自定义 NPC
 例：remove_npc 艾莉
 ```
 
+**存档系统**
+```
+save [槽位 1-5]         # 保存游戏到指定槽位
+load [槽位 1-5]         # 从指定槽位读取存档
+delete [槽位]           # 删除指定槽位的存档
+saves                   # 查看所有存档状态
+
+例：save 1               # 保存到槽位 1
+    load 1               # 从槽位 1 读取
+    delete 3             # 删除槽位 3
+    saves                # 查看存档列表
+```
+
 **AI 对话**
 ```
 ask [问题]              # 普通 AI 对话
@@ -170,11 +188,32 @@ ask Write a short story about a knight
 - **主角成长** - 属性/等级/经验/记忆系统
 - **交互动作** - 送礼/交易/互动影响关系
 - **自定义 NPC** - 创建和管理自定义 NPC
+- **完整存档系统** - JSON 格式，5 个槽位，保存所有游戏状态
+- **NPC 记忆持久化** - 存档中包含 NPC 对话记忆
 - **快捷操作** - 常用命令一键执行，无需频繁切换
 
 ## 版本历史
 
-### v2.4 (当前版本)
+### v2.7 (当前版本)
+- ✅ 清理废弃代码：移除 include/目录中 8 个未使用的头文件（215 行）
+- ✅ 简化 CMakeLists.txt：移除未使用的 include 路径配置
+- ✅ 代码清理：统一使用 g_save_dir 变量，移除 SAVE_DIR 宏
+- ✅ 版本号更新：v1.4 → v2.6 → v2.7
+- ✅ 项目结构优化：所有核心逻辑集中在 game_android.c
+
+### v2.6
+- ✅ 修复读档后场景 NPC 列表不显示的问题
+- ✅ 读档时根据自定义 NPC 的 location 字段自动重建场景 NPC 列表
+- ✅ 确保 look/map 指令能正确显示自定义 NPC
+
+### v2.5
+- ✅ 存档系统增加自定义 NPC 数据支持
+- ✅ 保存时记录自定义 NPC 的完整数据（外貌/状态/描述/位置/记忆）
+- ✅ 新增 load_npcs_from_json 函数读取存档中的 NPC 数据
+- ✅ 读档时恢复自定义 NPC 的所有属性和记忆
+- ✅ 添加 MAX_NPCS 和 MAX_MEMORIES 常量定义
+
+### v2.4
 - ✅ 实现存档系统：JSON 格式存档文件
 - ✅ 新增 5 个存档槽位（1-5）
 - ✅ 支持保存/读取/删除存档
@@ -273,6 +312,13 @@ ask Write a short story about a knight
 - ✅ 基础 HTTP API 版本
 - ✅ 场景/任务/NPC 系统
 
+## 备份版本
+
+| 备份名 | 版本 | Tag | 说明 |
+|--------|------|-----|------|
+| 备份一 | v2.3 | `备份一-v2.3-stable` | 稳定版（无存档系统） |
+| 备份二 | v2.6 | `备份二-v2.6-stable` | 稳定版（完整存档 + 自定义 NPC） |
+
 ## 故障排查
 
 ### API 服务器未响应
@@ -286,6 +332,12 @@ ask Write a short story about a knight
 1. 使用更小的模型（如 Q2_K 量化）
 2. 减少 `n_predict` 参数（在 ApiClient.java 中）
 3. 降低 temperature 值
+
+### 存档问题
+
+1. **保存失败** - 检查是否已授予存储权限
+2. **读取失败** - 确认存档槽位是否有存档（使用 `saves` 查看）
+3. **NPC 不显示** - 重新加载存档或重启游戏
 
 ## 编译
 
