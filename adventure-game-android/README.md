@@ -130,13 +130,20 @@ remove_npc [NPC 名]     # 删除自定义 NPC
 
 **AI 对话**
 ```
-ask [问题]              # AI 对话（使用 Termux 模型）
+ask [问题]              # 普通 AI 对话
 例：ask 请用中文介绍一下你自己
     ask 什么是人工智能？
     ask Write a short story about a knight
+
+chat [NPC] [内容]       # NPC 角色扮演对话（AI）
+例：chat 村长 最近的哥布林是怎么回事？
+    chat 艾莉 教我魔法吧
+    chat 铁匠老王 有什么好武器推荐？
 ```
 
-### 5. AI 对话示例
+**AI 对话示例**
+
+NPC 对话（v2.0 新增）：
 
 ```
 ask 请用中文介绍一下你自己
@@ -167,7 +174,16 @@ ask Write a short story about a knight
 
 ## 版本历史
 
-### v1.9 (当前版本)
+### v2.0 (当前版本)
+- ✅ 实现 NPC AI 对话功能：使用 `chat [NPC] [内容]` 命令进行 AI 驱动的对话
+- ✅ NPC 上下文系统：AI 对话时自动加载 NPC 设定（外貌/职业/关系/记忆）
+- ✅ 对话记忆功能：NPC 会记住与玩家的对话历史
+- ✅ 角色扮演模式：AI 根据 NPC 人设生成个性化回复
+- ✅ 新增 ApiClient.sendNpcRequest() 方法：支持带上下文的 AI 请求
+- ✅ JNI 接口：getNpcContext() / saveNpcTalk() 用于获取 NPC 信息和保存对话
+- ✅ 记忆类型系统：区分 talk/gift/interact/trade 等不同互动类型
+
+### v1.9
 - ✅ 完善自定义 NPC 创建功能，添加三种创建方式：
   - 快速创建：`create_npc [名称] [职业]`
   - 详细创建：`create_npc [名称] [职业] [发型] [眼睛] [身材] [服装] [特征]`
