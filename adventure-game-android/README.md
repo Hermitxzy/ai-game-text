@@ -174,7 +174,12 @@ ask Write a short story about a knight
 
 ## 版本历史
 
-### v2.1 (当前版本)
+### v2.2 (当前版本)
+- ✅ 修复"AI 对话"按钮无响应问题：添加按钮变量声明和点击事件绑定
+- ✅ 修复"AI 问答"按钮无响应问题：添加 findViewById 和 onClick 绑定
+- ✅ 代码优化：清理重复的 findViewById 调用
+
+### v2.1
 - ✅ 新增"AI 对话"快捷按钮：一键启动 NPC AI 对话，自动加载 NPC 列表
 - ✅ 新增"AI 问答"按钮到更多面板：支持普通 AI 问答功能
 - ✅ 完善项目结构文档：新增 STRUCTURE.md 详细说明架构和代码
