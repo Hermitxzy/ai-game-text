@@ -1088,12 +1088,25 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets
     }
     else if (strcmp(cmd, "talk") == 0 || strcmp(cmd, "gift") == 0 || 
              strcmp(cmd, "trade") == 0 || strcmp(cmd, "interact") == 0) {
-        parse_targets_from_string(g_game.current_scene->npcs, targets);
+        // 遍历 NPC 数组，获取当前场景的 NPC
+        int first = 1;
+        for (int i = 0; i < g_game.npc_count; i++) {
+            if (strcmp(g_game.npcs[i].location, g_game.current_scene->id) == 0) {
+                if (!first) strcat(targets, "|");
+                strcat(targets, g_game.npcs[i].name);
+                first = 0;
+            }
+        }
     }
     else if (strcmp(cmd, "npc") == 0) {
+        // 遍历 NPC 数组，获取当前场景的 NPC
+        int first = 1;
         for (int i = 0; i < g_game.npc_count; i++) {
-            if (i > 0) strcat(targets, "|");
-            strcat(targets, g_game.npcs[i].name);
+            if (strcmp(g_game.npcs[i].location, g_game.current_scene->id) == 0) {
+                if (!first) strcat(targets, "|");
+                strcat(targets, g_game.npcs[i].name);
+                first = 0;
+            }
         }
     }
     else if (strcmp(cmd, "remove_npc") == 0) {
