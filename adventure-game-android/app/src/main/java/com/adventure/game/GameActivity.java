@@ -35,7 +35,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     // 更多命令面板按钮
     private LinearLayout morePanel;
     private Button btnAppearance, btnMemory, btnNpc, btnGo;
-    private Button btnGift, btnTrade, btnInteract;
+    private Button btnGift, btnTrade, btnInteract, btnSetNpc;
     private Button btnCreateNpc, btnRemoveNpc;
     
     // 目标选择
@@ -130,6 +130,12 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         btnGift = findViewById(R.id.btnGift);
         btnTrade = findViewById(R.id.btnTrade);
         btnInteract = findViewById(R.id.btnInteract);
+        btnSetNpc = findViewById(R.id.btnSetNpc);
+        btnCreateNpc = findViewById(R.id.btnCreateNpc);
+        btnRemoveNpc = findViewById(R.id.btnRemoveNpc);
+        btnGift = findViewById(R.id.btnGift);
+        btnTrade = findViewById(R.id.btnTrade);
+        btnInteract = findViewById(R.id.btnInteract);
         btnCreateNpc = findViewById(R.id.btnCreateNpc);
         btnRemoveNpc = findViewById(R.id.btnRemoveNpc);
         
@@ -151,6 +157,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         btnGift.setOnClickListener(this);
         btnTrade.setOnClickListener(this);
         btnInteract.setOnClickListener(this);
+        btnSetNpc.setOnClickListener(this);
         btnCreateNpc.setOnClickListener(this);
         btnRemoveNpc.setOnClickListener(this);
         
@@ -169,7 +176,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         if (command.equals("go") || command.equals("talk") || 
             command.equals("gift") || command.equals("trade") || 
             command.equals("interact") || command.equals("npc") || 
-            command.equals("remove_npc")) {
+            command.equals("remove_npc") || command.equals("setnpc")) {
             String targets = getCommandTargets(command);
             if (!TextUtils.isEmpty(targets)) {
                 availableTargets = targets.split("\\|");
@@ -280,6 +287,12 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
             currentCommand = "interact";
             loadTargetsForCommand("interact");
             inputText.setText("interact ");
+            inputText.requestFocus();
+        }
+        else if (id == R.id.btnSetNpc) {
+            currentCommand = "setnpc";
+            loadTargetsForCommand("remove_npc"); // 使用自定义 NPC 列表
+            inputText.setText("setnpc ");
             inputText.requestFocus();
         }
         else if (id == R.id.btnCreateNpc) {

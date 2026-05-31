@@ -453,8 +453,10 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             "  interact [NPC] - 互动（聊天等）\n"
             "  ask [问题] - AI 对话\n\n"
             "【自定义 NPC】\n"
-            "  create_npc - 创建自定义 NPC\n"
-            "  remove_npc [NPC 名] - 删除自定义 NPC\n\n"
+            "  create_npc - 查看创建向导\n"
+            "  create_npc [名] [职业] - 快速创建\n"
+            "  setnpc [名] [属性] [值] - 修改 NPC\n"
+            "  remove_npc [名] - 删除 NPC\n\n"
             "  exit - 退出游戏");
     }
     
@@ -887,52 +889,267 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
         }
     }
     
-    // create_npc 命令 - 创建自定义 NPC
+    // create_npc 命令 - 创建自定义 NPC（带向导）
     else if (strcmp(inputText, "create_npc") == 0) {
         if (g_game.npc_count >= 20) {
             strcpy(response, "最多只能创建 20 个 NPC。");
         } else {
-            // 创建默认 NPC，后续可以通过 AI 对话自定义
-            char new_npc_id[32];
-            snprintf(new_npc_id, sizeof(new_npc_id), "custom_%d", g_game.npc_count);
+            strcpy(response,
+                "╔══════════════════════════════════════════╗\n"
+                "║     自定义 NPC 创建向导                   ║\n"
+                "╚══════════════════════════════════════════╝\n\n"
+                "【方法一】快速创建（推荐新手）\n"
+                "输入：create_npc [名称] [职业]\n"
+                "例：create_npc 魔法师 法师\n"
+                "   → 自动创建默认外貌的 NPC\n\n"
+                "【方法二】详细创建\n"
+                "输入：create_npc [名称] [职业] [发型] [眼睛] [身材] [服装] [特征]\n"
+                "例：create_npc 艾莉 法师 银色长发 紫色眼睛 纤细 紫色长袍 水晶法杖\n"
+                "   → 创建完全自定义的 NPC\n\n"
+                "【方法三】AI 创建\n"
+                "输入：ask 创建一个 [描述]\n"
+                "例：ask 创建一个神秘的精灵弓箭手，金色长发，绿色眼睛\n"
+                "   → 使用 AI 生成 NPC 设定\n\n"
+                "【编辑已创建的 NPC】\n"
+                "setnpc [NPC 名] [属性] [新值]\n"
+                "属性包括：name, hair, eyes, body, clothes, features, occupation\n"
+                "例：setnpc 艾莉 hair 金色长发\n"
+                "   → 修改艾莉的发型为金色长发\n\n"
+                "【删除 NPC】\n"
+                "remove_npc [NPC 名]\n"
+                "例：remove_npc 艾莉\n\n"
+                "提示：当前已创建 ");
             
-            NPC *new_npc = &g_game.npcs[g_game.npc_count];
-            strcpy(new_npc->id, new_npc_id);
-            strcpy(new_npc->name, "自定义 NPC");
-            strcpy(new_npc->description, "这是一个自定义 NPC，可以通过 AI 对话来完善设定。");
-            strcpy(new_npc->appearance.hair, "普通发型");
-            strcpy(new_npc->appearance.eyes, "普通眼睛");
-            strcpy(new_npc->appearance.body, "普通身材");
-            strcpy(new_npc->appearance.clothes, "普通服装");
-            strcpy(new_npc->appearance.features, "无明显特征");
-            new_npc->status.health = 100;
-            new_npc->status.mood = 70;
-            new_npc->status.energy = 80;
-            strcpy(new_npc->status.occupation, "自由职业者");
-            new_npc->status.is_alive = 1;
-            new_npc->relation = 30;
-            strcpy(new_npc->location, g_game.current_scene->id);
-            new_npc->is_custom = 1;
-            new_npc->memory_count = 0;
-            
-            // 添加到当前场景 NPC 列表
-            if (strlen(g_game.current_scene->npcs) == 0) {
-                strcpy(new_npc->name, "自定义 NPC");
-            } else {
-                char old_npcs[256];
-                strcpy(old_npcs, g_game.current_scene->npcs);
-                snprintf(g_game.current_scene->npcs, sizeof(g_game.current_scene->npcs), 
-                         "%s，自定义 NPC", old_npcs);
+            // 统计自定义 NPC 数量
+            int custom_count = 0;
+            for (int i = 0; i < g_game.npc_count; i++) {
+                if (g_game.npcs[i].is_custom) custom_count++;
             }
             
-            g_game.npc_count++;
+            char count_str[64];
+            snprintf(count_str, sizeof(count_str), "%d 个自定义 NPC，还可创建 %d 个。", 
+                     custom_count, 20 - custom_count);
+            strcat(response, count_str);
+        }
+    }
+    
+    // create_npc [名称] [职业] ... 快速创建
+    else if (strncmp(inputText, "create_npc ", 11) == 0) {
+        if (g_game.npc_count >= 20) {
+            strcpy(response, "最多只能创建 20 个 NPC。");
+        } else {
+            const char *args = inputText + 11;
+            char npc_name[64] = {0};
+            char occupation[64] = {0};
+            char hair[64] = "普通发型";
+            char eyes[64] = "普通眼睛";
+            char body[64] = "普通身材";
+            char clothes[128] = "普通服装";
+            char features[128] = "无明显特征";
             
+            // 解析参数（空格分隔）
+            int part = 0;
+            int i = 0, j = 0;
+            while (args[i] && part < 7) {
+                if (args[i] == ' ') {
+                    part++;
+                    j = 0;
+                    i++;
+                } else {
+                    switch (part) {
+                        case 0: if (j < 63) npc_name[j++] = args[i]; break;
+                        case 1: if (j < 63) occupation[j++] = args[i]; break;
+                        case 2: if (j < 63) hair[j++] = args[i]; break;
+                        case 3: if (j < 63) eyes[j++] = args[i]; break;
+                        case 4: if (j < 63) body[j++] = args[i]; break;
+                        case 5: if (j < 127) clothes[j++] = args[i]; break;
+                        case 6: if (j < 127) features[j++] = args[i]; break;
+                    }
+                    i++;
+                }
+            }
+            
+            if (strlen(npc_name) == 0) {
+                strcpy(response, "错误：请提供 NPC 名称\n用法：create_npc [名称] [职业] [发型] [眼睛] [身材] [服装] [特征]");
+            } else {
+                // 检查是否已存在同名 NPC
+                NPC *existing = find_npc_by_name(npc_name);
+                if (existing != NULL) {
+                    snprintf(response, sizeof(response), "错误：已存在名为 '%s' 的 NPC。", npc_name);
+                } else {
+                    char new_npc_id[32];
+                    snprintf(new_npc_id, sizeof(new_npc_id), "custom_%d", g_game.npc_count);
+                    
+                    NPC *new_npc = &g_game.npcs[g_game.npc_count];
+                    strcpy(new_npc->id, new_npc_id);
+                    strcpy(new_npc->name, npc_name);
+                    
+                    char desc[256];
+                    if (strlen(occupation) > 0 && strcmp(occupation, "自由职业者") != 0) {
+                        snprintf(desc, sizeof(desc), "%s，一位%s。", npc_name, occupation);
+                        strcpy(new_npc->status.occupation, occupation);
+                    } else {
+                        snprintf(desc, sizeof(desc), "%s，一位自由职业者。", npc_name);
+                        strcpy(new_npc->status.occupation, "自由职业者");
+                    }
+                    strcpy(new_npc->description, desc);
+                    
+                    strcpy(new_npc->appearance.hair, hair);
+                    strcpy(new_npc->appearance.eyes, eyes);
+                    strcpy(new_npc->appearance.body, body);
+                    strcpy(new_npc->appearance.clothes, clothes);
+                    strcpy(new_npc->appearance.features, features);
+                    
+                    new_npc->status.health = 100;
+                    new_npc->status.mood = 70;
+                    new_npc->status.energy = 80;
+                    new_npc->status.is_alive = 1;
+                    new_npc->relation = 30;
+                    strcpy(new_npc->location, g_game.current_scene->id);
+                    new_npc->is_custom = 1;
+                    new_npc->memory_count = 0;
+                    
+                    // 添加到当前场景 NPC 列表
+                    if (strlen(g_game.current_scene->npcs) == 0) {
+                        strcpy(g_game.current_scene->npcs, npc_name);
+                    } else {
+                        char old_npcs[256];
+                        strcpy(old_npcs, g_game.current_scene->npcs);
+                        snprintf(g_game.current_scene->npcs, sizeof(g_game.current_scene->npcs), 
+                                 "%s，%s", old_npcs, npc_name);
+                    }
+                    
+                    g_game.npc_count++;
+                    
+                    snprintf(response, sizeof(response),
+                        "【自定义 NPC 创建成功】\n\n"
+                        "╔══════════════════════════════════════════╗\n"
+                        "║ %-36s ║\n"
+                        "╚══════════════════════════════════════════╝\n\n"
+                        "【基本信息】\n"
+                        "  名称：%s\n"
+                        "  职业：%s\n"
+                        "  位置：%s\n\n"
+                        "【外貌特征】\n"
+                        "  发型：%s\n"
+                        "  眼睛：%s\n"
+                        "  身材：%s\n"
+                        "  服装：%s\n"
+                        "  特征：%s\n\n"
+                        "【初始状态】\n"
+                        "  关系：30/100 (陌生)\n"
+                        "  心情：70/100\n"
+                        "  生命：100/100\n\n"
+                        "💡 提示：\n"
+                        "  • 使用 'setnpc %s [属性] [新值]' 修改属性\n"
+                        "  • 使用 'talk %s' 与 NPC 对话\n"
+                        "  • 使用 'gift %s [物品]' 提升关系\n"
+                        "  • 使用 'remove_npc %s' 删除此 NPC",
+                        npc_name,
+                        npc_name,
+                        strlen(occupation) > 0 ? occupation : "自由职业者",
+                        g_game.current_scene->name,
+                        hair,
+                        eyes,
+                        body,
+                        clothes,
+                        features,
+                        npc_name,
+                        npc_name,
+                        npc_name,
+                        npc_name);
+                }
+            }
+        }
+    }
+    
+    // setnpc [NPC 名] [属性] [新值] - 修改 NPC 属性
+    else if (strncmp(inputText, "setnpc ", 7) == 0) {
+        const char *args = inputText + 7;
+        char npc_name[64] = {0};
+        char attr[32] = {0};
+        char new_value[256] = {0};
+        
+        // 解析参数
+        int part = 0, i = 0, j = 0;
+        while (args[i] && part < 3) {
+            if (args[i] == ' ') {
+                part++;
+                j = 0;
+                i++;
+            } else {
+                switch (part) {
+                    case 0: if (j < 63) npc_name[j++] = args[i]; break;
+                    case 1: if (j < 31) attr[j++] = args[i]; break;
+                    case 2: if (j < 255) new_value[j++] = args[i]; break;
+                }
+                i++;
+            }
+        }
+        
+        if (strlen(npc_name) == 0 || strlen(attr) == 0 || strlen(new_value) == 0) {
             strcpy(response,
-                "【自定义 NPC 已创建】\n\n"
-                "名称：自定义 NPC\n"
-                "位置：当前场景\n\n"
-                "使用 'ask' 命令来描述你想创建的 NPC，\n"
-                "例如：'ask 创建一个神秘的魔法师，穿着紫色长袍，手持水晶法杖'");
+                "用法：setnpc [NPC 名] [属性] [新值]\n\n"
+                "属性列表：\n"
+                "  name - 名称\n"
+                "  hair - 发型\n"
+                "  eyes - 眼睛\n"
+                "  body - 身材\n"
+                "  clothes - 服装\n"
+                "  features - 特征\n"
+                "  occupation - 职业\n"
+                "  desc - 描述\n\n"
+                "例：setnpc 艾莉 hair 金色长发\n"
+                "   setnpc 艾莉 occupation 法师");
+        } else {
+            NPC *npc = find_npc_by_name(npc_name);
+            if (npc == NULL) {
+                snprintf(response, sizeof(response), "找不到 NPC：%s", npc_name);
+            } else if (!npc->is_custom) {
+                strcpy(response, "只能修改自定义 NPC 的属性。\n使用 'create_npc' 创建自定义 NPC。");
+            } else {
+                int modified = 0;
+                if (strcmp(attr, "name") == 0) {
+                    // 检查新名字是否已存在
+                    NPC *existing = find_npc_by_name(new_value);
+                    if (existing != NULL && existing != npc) {
+                        snprintf(response, sizeof(response), "错误：已存在名为 '%s' 的 NPC。", new_value);
+                    } else {
+                        strncpy(npc->name, new_value, 63);
+                        modified = 1;
+                    }
+                } else if (strcmp(attr, "hair") == 0) {
+                    strncpy(npc->appearance.hair, new_value, 63);
+                    modified = 1;
+                } else if (strcmp(attr, "eyes") == 0) {
+                    strncpy(npc->appearance.eyes, new_value, 63);
+                    modified = 1;
+                } else if (strcmp(attr, "body") == 0) {
+                    strncpy(npc->appearance.body, new_value, 63);
+                    modified = 1;
+                } else if (strcmp(attr, "clothes") == 0) {
+                    strncpy(npc->appearance.clothes, new_value, 127);
+                    modified = 1;
+                } else if (strcmp(attr, "features") == 0) {
+                    strncpy(npc->appearance.features, new_value, 127);
+                    modified = 1;
+                } else if (strcmp(attr, "occupation") == 0) {
+                    strncpy(npc->status.occupation, new_value, 63);
+                    modified = 1;
+                } else if (strcmp(attr, "desc") == 0) {
+                    strncpy(npc->description, new_value, 255);
+                    modified = 1;
+                }
+                
+                if (modified) {
+                    snprintf(response, sizeof(response),
+                        "【NPC 属性已修改】\n\n"
+                        "  NPC：%s\n"
+                        "  属性：%s → %s\n\n"
+                        "使用 'npc %s' 查看完整信息。",
+                        npc_name, attr, new_value, npc->name);
+                }
+            }
         }
     }
     
@@ -1116,7 +1333,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getCommandTargets
             }
         }
     }
-    else if (strcmp(cmd, "remove_npc") == 0) {
+    else if (strcmp(cmd, "remove_npc") == 0 || strcmp(cmd, "setnpc") == 0) {
         for (int i = 0; i < g_game.npc_count; i++) {
             if (g_game.npcs[i].is_custom) {
                 if (strlen(targets) > 0) strcat(targets, "|");
