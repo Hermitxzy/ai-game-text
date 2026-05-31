@@ -11,9 +11,9 @@
 #include <time.h>
 #include <android/log.h>
 
-// Android 日志标签
 #define LOG_TAG "AdventureGame"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 // ============================================================================
@@ -152,32 +152,44 @@ static int g_initialized = 0;
 // 辅助函数：添加主角记忆
 // ============================================================================
 static void add_player_memory(const char *content, int relation_change) {
-    if (g_game.player_memory.count >= 30) return;
+    // 使用循环缓冲区：如果记忆已满，覆盖最旧的记忆
+    int index = g_game.player_memory.count % 30;
     
-    MemoryEntry *entry = &g_game.player_memory.entries[g_game.player_memory.count];
+    MemoryEntry *entry = &g_game.player_memory.entries[index];
     strncpy(entry->content, content, 255);
     entry->content[255] = '\0';
     entry->timestamp = g_game.game_time + g_game.day * 24;
     entry->relation_change = relation_change;
-    g_game.player_memory.count++;
     
-    LOGI("添加记忆：%s", content);
+    // 只在未满时增加计数
+    if (g_game.player_memory.count < 30) {
+        g_game.player_memory.count++;
+    }
+    
+    LOGI("添加记忆：%s (count=%d/%d)", content, g_game.player_memory.count, 30);
 }
 
 // ============================================================================
 // 辅助函数：添加 NPC 记忆
 // ============================================================================
 static void add_npc_memory(NPC *npc, const char *content, int relation_change) {
-    if (npc == NULL || npc->memory_count >= 20) return;
+    if (npc == NULL) return;
     
-    MemoryEntry *entry = &npc->memories[npc->memory_count];
+    // 使用循环缓冲区：如果记忆已满，覆盖最旧的记忆
+    int index = npc->memory_count % 20;
+    MemoryEntry *entry = &npc->memories[index];
+    
     strncpy(entry->content, content, 255);
     entry->content[255] = '\0';
     entry->timestamp = g_game.game_time + g_game.day * 24;
     entry->relation_change = relation_change;
-    npc->memory_count++;
     
-    LOGI("NPC %s 添加记忆：%s", npc->name, content);
+    // 只在未满时增加计数
+    if (npc->memory_count < 20) {
+        npc->memory_count++;
+    }
+    
+    LOGI("NPC %s 添加记忆：%s (count=%d/%d)", npc->name, content, npc->memory_count, 20);
 }
 
 // ============================================================================
@@ -1446,22 +1458,32 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
     }
     
     NPC *npc = find_npc_by_name(name);
-    if (npc != NULL && npc->memory_count < 20) {
-        // 保存 NPC 记忆
-        MemoryEntry *mem = &npc->memories[npc->memory_count];
+    if (npc != NULL) {
+        // 使用循环缓冲区：如果记忆已满，覆盖最旧的记忆
+        int index = npc->memory_count % 20;
+        MemoryEntry *mem = &npc->memories[index];
+        
         snprintf(mem->content, sizeof(mem->content), "%s", reply);
         strncpy(mem->speaker, "玩家", sizeof(mem->speaker) - 1);
+        mem->speaker[sizeof(mem->speaker) - 1] = '\0';
         strncpy(mem->type, "talk", sizeof(mem->type) - 1);
+        mem->type[sizeof(mem->type) - 1] = '\0';
         mem->timestamp = g_game.game_time + g_game.day * 24;
         mem->relation_change = 0;
-        npc->memory_count++;
         
-        // 保存主角记忆
+        // 只在未满时增加计数
+        if (npc->memory_count < 20) {
+            npc->memory_count++;
+        }
+        
+        // 保存主角记忆（同样使用循环缓冲区）
         char player_mem[256];
         snprintf(player_mem, sizeof(player_mem), "%s：%s", name, reply);
         add_player_memory(player_mem, 0);
         
-        LOGI("保存 NPC 对话记忆：%s", name);
+        LOGI("保存 NPC 对话记忆：%s (count=%d/%d)", name, npc->memory_count, 20);
+    } else {
+        LOGW("找不到 NPC: %s", name);
     }
     
     (*env)->ReleaseStringUTFChars(env, npcName, name);
