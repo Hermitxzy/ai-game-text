@@ -1,5 +1,5 @@
 // ============================================================================
-// Android 游戏入口（HTTP API 版）- v2.6
+// Android 游戏入口（HTTP API 版）- v2.8
 // 功能：游戏核心逻辑，包括场景、NPC（外貌/记忆/状态）、主角系统、交互动作、存档系统
 // 编译：通过 CMake 编译为 JNI 库
 // ============================================================================
@@ -308,7 +308,7 @@ JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_initGame(
     
     if (g_initialized) return JNI_TRUE;
     
-    LOGI("=== 初始化游戏 v2.6 ===");
+    LOGI("=== 初始化游戏 v2.8 ===");
     memset(&g_game, 0, sizeof(GameContext));
     
     // 设置主角默认属性
