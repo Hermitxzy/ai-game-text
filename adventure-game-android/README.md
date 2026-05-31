@@ -174,7 +174,16 @@ ask Write a short story about a knight
 
 ## 版本历史
 
-### v2.3 (当前版本)
+### v2.4 (当前版本)
+- ✅ 实现存档系统：JSON 格式存档文件
+- ✅ 新增 5 个存档槽位（1-5）
+- ✅ 支持保存/读取/删除存档
+- ✅ 存档命令：save/load/delete/saves
+- ✅ 存档 UI：保存/读取/列表 快捷按钮
+- ✅ 存档位置：/data/data/com.adventure.game/files/saves/
+- ✅ 备份一保持不变（v2.3 稳定版）
+
+### v2.3
 - ✅ 修复多次 NPC AI 对话闪退问题：使用循环缓冲区防止数组越界
 - ✅ 修复 NPC 记忆溢出 problem：当记忆满 20 条时自动覆盖最旧记忆
 - ✅ 修复主角记忆溢出 problem：当记忆满 30 条时自动覆盖最旧记忆

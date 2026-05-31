@@ -9,12 +9,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/stat.h>
+#include <stdbool.h>
 #include <android/log.h>
 
 #define LOG_TAG "AdventureGame"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define SAVE_DIR "/data/data/com.adventure.game/files/saves"
+#define MAX_SAVE_SLOTS 5
 
 // ============================================================================
 // 数据结构定义
@@ -429,6 +433,13 @@ JNIEXPORT jboolean JNICALL Java_com_adventure_game_GameActivity_initGame(
     g_game.running = 1;
     g_initialized = 1;
     
+
+// 存档系统前向声明
+bool savegame_save(const struct GameContext *game, int slot);
+bool savegame_load(struct GameContext *game, int slot);
+bool savegame_exists(int slot);
+bool savegame_delete(int slot);
+
     LOGI("游戏初始化完成");
     return JNI_TRUE;
 }
@@ -471,6 +482,11 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             "  create_npc [名] [职业] - 快速创建\n"
             "  setnpc [名] [属性] [值] - 修改 NPC\n"
             "  remove_npc [名] - 删除 NPC\n\n"
+            "【存档系统】\n"
+            "  saves - 查看存档列表\n"
+            "  save [槽位 1-5] - 保存游戏\n"
+            "  load [槽位 1-5] - 加载游戏\n"
+            "  delete [槽位] - 删除存档\n\n"
             "  exit - 退出游戏");
     }
     
@@ -1231,6 +1247,71 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_processInput(
             inputText + 4);
     }
     
+    // 存档系统命令
+    else if (strcmp(inputText, "saves") == 0) {
+        strcat(response, "=== 存档列表 ===\n");
+        for (int i = 1; i <= 5; i++) {
+            if (savegame_exists(i)) {
+                char fp[256];
+                snprintf(fp, sizeof(fp), SAVE_DIR "/save_slot_%d.json", i);
+                struct stat st;
+                if (stat(fp, &st) == 0) {
+                    char tb[64];
+                    struct tm *tm = localtime(&st.st_mtime);
+                    strftime(tb, sizeof(tb), "%m-%d %H:%M", tm);
+                    snprintf(response + strlen(response), sizeof(response) - strlen(response),
+                        "槽位 %d: ✓ 已保存 (%s, %ld 字节)\n", i, tb, st.st_size);
+                } else {
+                    snprintf(response + strlen(response), sizeof(response) - strlen(response),
+                        "槽位 %d: ✓ 已保存\n", i);
+                }
+            } else {
+                snprintf(response + strlen(response), sizeof(response) - strlen(response),
+                    "槽位 %d: (空)\n", i);
+            }
+        }
+        strcat(response, "\n用法：save [槽位 1-5] - 保存 | load [槽位 1-5] - 读取 | delete [槽位] - 删除");
+    }
+    else if (strncmp(inputText, "save ", 5) == 0) {
+        int slot = atoi(inputText + 5);
+        if (slot < 1 || slot > 5) {
+            strcpy(response, "无效的槽位！请使用 1-5。\n用法：save [槽位]");
+        } else if (savegame_save(&g_game, slot)) {
+            snprintf(response, sizeof(response), "✓ 游戏已保存到槽位 %d\n路径：%s/save_slot_%d.json",
+                slot, SAVE_DIR, slot);
+        } else {
+            strcpy(response, "✗ 保存失败！");
+        }
+    }
+    else if (strncmp(inputText, "load ", 5) == 0) {
+        int slot = atoi(inputText + 5);
+        if (slot < 1 || slot > 5) {
+            strcpy(response, "无效的槽位！请使用 1-5。\n用法：load [槽位]");
+        } else if (!savegame_exists(slot)) {
+            snprintf(response, sizeof(response), "槽位 %d 没有存档！", slot);
+        } else if (savegame_load(&g_game, slot)) {
+            snprintf(response, sizeof(response),
+                "✓ 已从槽位 %d 加载\n第 %d 天 %d:00 | 生命：%d/%d | %s",
+                slot, g_game.day, g_game.game_time,
+                g_game.player_status.health, g_game.player_status.max_health,
+                g_game.current_scene ? g_game.current_scene->name : "未知");
+        } else {
+            snprintf(response, sizeof(response), "✗ 加载槽位 %d 失败！", slot);
+        }
+    }
+    else if (strncmp(inputText, "delete ", 7) == 0) {
+        int slot = atoi(inputText + 7);
+        if (slot < 1 || slot > 5) {
+            strcpy(response, "无效的槽位！请使用 1-5。\n用法：delete [槽位]");
+        } else if (!savegame_exists(slot)) {
+            snprintf(response, sizeof(response), "槽位 %d 没有存档！", slot);
+        } else if (savegame_delete(slot)) {
+            snprintf(response, sizeof(response), "✓ 已删除槽位 %d 的存档", slot);
+        } else {
+            snprintf(response, sizeof(response), "✗ 删除槽位 %d 失败！", slot);
+        }
+    }
+    
     // 未知命令
     else {
         snprintf(response, sizeof(response), 
@@ -1489,4 +1570,275 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
     (*env)->ReleaseStringUTFChars(env, npcName, name);
     (*env)->ReleaseStringUTFChars(env, playerSay, say);
     (*env)->ReleaseStringUTFChars(env, npcReply, reply);
+}
+// ============================================================================
+// 存档系统实现 - JSON 格式
+// 功能：保存/加载游戏进度到内部存储
+// 位置：/data/data/com.adventure.game/files/saves/
+// ============================================================================
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <android/log.h>
+
+#define LOG_TAG "AdventureGame_Save"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+#define MAX_SAVE_SLOTS 5
+
+
+// 存档目录
+#define SAVE_FILE SAVE_DIR "/save_slot_%d.json"
+
+// 转义 JSON 字符串
+static void escape_json(const char *src, char *dst, size_t dst_size) {
+    size_t j = 0;
+    for (size_t i = 0; src[i] && j < dst_size - 2; i++) {
+        switch (src[i]) {
+            case '"':  if (j < dst_size - 3) { dst[j++] = '\\'; dst[j++] = '"'; } break;
+            case '\\': if (j < dst_size - 3) { dst[j++] = '\\'; dst[j++] = '\\'; } break;
+            case '\n': if (j < dst_size - 3) { dst[j++] = '\\'; dst[j++] = 'n'; } break;
+            case '\r': if (j < dst_size - 3) { dst[j++] = '\\'; dst[j++] = 'r'; } break;
+            case '\t': if (j < dst_size - 3) { dst[j++] = '\\'; dst[j++] = 't'; } break;
+            default:   dst[j++] = src[i]; break;
+        }
+    }
+    dst[j] = '\0';
+}
+
+// 创建存档目录
+static bool ensure_save_dir(void) {
+    struct stat st = {0};
+    if (stat(SAVE_DIR, &st) == -1) {
+        if (mkdir(SAVE_DIR, 0755) == -1) {
+            LOGE("无法创建存档目录：%s", strerror(errno));
+            return false;
+        }
+    }
+    return true;
+}
+
+// 保存游戏
+bool savegame_save(const struct GameContext *game, int slot) {
+    if (slot < 1 || slot > MAX_SAVE_SLOTS) {
+        LOGE("无效的存档槽位：%d", slot);
+        return false;
+    }
+    if (!ensure_save_dir()) return false;
+    
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), SAVE_FILE, slot);
+    
+    FILE *fp = fopen(filepath, "w");
+    if (!fp) {
+        LOGE("无法创建存档文件：%s", strerror(errno));
+        return false;
+    }
+    
+    LOGI("保存游戏到槽位 %d...", slot);
+    
+    fprintf(fp, "{\n  \"version\": \"2.4\",\n  \"timestamp\": %ld,\n  \"slot\": %d,\n", (long)time(NULL), slot);
+    fprintf(fp, "  \"game\": {\n    \"day\": %d,\n    \"game_time\": %d,\n", game->day, game->game_time);
+    
+    char escaped[1024];
+    escape_json(game->player_name, escaped, sizeof(escaped));
+    fprintf(fp, "    \"player_name\": \"%s\",\n", escaped);
+    escape_json(game->current_scene ? game->current_scene->id : "", escaped, sizeof(escaped));
+    fprintf(fp, "    \"current_scene\": \"%s\",\n", escaped);
+    
+    // 玩家状态
+    fprintf(fp, "    \"status\": {\"health\":%d,\"max_health\":%d,\"mana\":%d,\"max_mana\":%d,",
+            game->player_status.health, game->player_status.max_health,
+            game->player_status.mana, game->player_status.max_mana);
+    fprintf(fp, "\"strength\":%d,\"agility\":%d,\"intelligence\":%d,",
+            game->player_status.strength, game->player_status.agility, game->player_status.intelligence);
+    fprintf(fp, "\"level\":%d,\"exp\":%d},\n", game->player_status.level, game->player_status.exp);
+    
+    // 玩家外貌
+    escape_json(game->player_appearance.hair, escaped, sizeof(escaped));
+    fprintf(fp, "    \"hair\": \"%s\",\n", escaped);
+    escape_json(game->player_appearance.eyes, escaped, sizeof(escaped));
+    fprintf(fp, "    \"eyes\": \"%s\",\n", escaped);
+    escape_json(game->player_appearance.body, escaped, sizeof(escaped));
+    fprintf(fp, "    \"body\": \"%s\",\n", escaped);
+    escape_json(game->player_appearance.clothes, escaped, sizeof(escaped));
+    fprintf(fp, "    \"clothes\": \"%s\",\n", escaped);
+    escape_json(game->player_appearance.features, escaped, sizeof(escaped));
+    fprintf(fp, "    \"features\": \"%s\"\n  },\n", escaped);
+    
+    // 背包
+    fprintf(fp, "  \"inventory\": {\"gold\":%d,\"item_count\":%d", game->inventory.gold, game->inventory.item_count);
+    fprintf(fp, ",\"items\":[");
+    for (int i = 0; i < game->inventory.item_count; i++) {
+        escape_json(game->inventory.items[i].name, escaped, sizeof(escaped));
+        fprintf(fp, "%s{\"name\":\"%s\",\"type\":\"%s\",\"value\":%d,\"effect\":%d}",
+                i > 0 ? "," : "", escaped, game->inventory.items[i].type,
+                game->inventory.items[i].value, game->inventory.items[i].effect);
+    }
+    fprintf(fp, "]},\n");
+    
+    // 任务
+    fprintf(fp, "  \"quests\": {\"count\":%d,\"quests\":[", game->quest_count);
+    for (int i = 0; i < game->quest_count; i++) {
+        escape_json(game->quests[i].id, escaped, sizeof(escaped));
+        fprintf(fp, "%s{\"id\":\"%s\",\"name\":\"%s\",\"completed\":%d,\"active\":%d}",
+                i > 0 ? "," : "", escaped, game->quests[i].name,
+                game->quests[i].completed, game->quests[i].active);
+    }
+    fprintf(fp, "]},\n");
+    
+    // NPC
+    fprintf(fp, "  \"npcs\": {\"count\":%d,\"npcs\":[", game->npc_count);
+    for (int i = 0; i < game->npc_count; i++) {
+        escape_json(game->npcs[i].id, escaped, sizeof(escaped));
+        fprintf(fp, "%s{\"id\":\"%s\",\"name\":\"%s\",\"relation\":%d,\"is_custom\":%d,\"memory_count\":%d}",
+                i > 0 ? "," : "", escaped, game->npcs[i].name,
+                game->npcs[i].relation, game->npcs[i].is_custom, game->npcs[i].memory_count);
+    }
+    fprintf(fp, "]}\n}\n}\n");
+    
+    fclose(fp);
+    LOGI("✓ 存档成功：%s", filepath);
+    return true;
+}
+
+// 从 JSON 提取整数
+static int json_get_int(const char *json, const char *key) {
+    char search[128];
+    snprintf(search, sizeof(search), "\"%s\":", key);
+    const char *pos = strstr(json, search);
+    if (!pos) return 0;
+    pos += strlen(search);
+    while (*pos == ' ') pos++;
+    return atoi(pos);
+}
+
+// 从 JSON 提取字符串
+static void json_get_str(const char *json, const char *key, char *out, size_t out_size) {
+    char search[128];
+    snprintf(search, sizeof(search), "\"%s\":", key);
+    const char *pos = strstr(json, search);
+    if (!pos) { out[0] = '\0'; return; }
+    pos += strlen(search);
+    while (*pos == ' ') pos++;
+    if (*pos != '"') { out[0] = '\0'; return; }
+    pos++;
+    size_t i = 0;
+    while (*pos && *pos != '"' && i < out_size - 1) {
+        if (*pos == '\\' && *(pos+1)) {
+            pos++;
+            switch (*pos) {
+                case 'n': out[i++] = '\n'; break;
+                case 'r': out[i++] = '\r'; break;
+                case 't': out[i++] = '\t'; break;
+                default: out[i++] = *pos; break;
+            }
+        } else {
+            out[i++] = *pos;
+        }
+        pos++;
+    }
+    out[i] = '\0';
+}
+
+// 读取文件到字符串
+static char* read_file(const char *path) {
+    FILE *fp = fopen(path, "r");
+    if (!fp) return NULL;
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    char *buf = (char*)malloc(size + 1);
+    if (!buf) { fclose(fp); return NULL; }
+    size_t n = fread(buf, 1, size, fp);
+    buf[n] = '\0';
+    fclose(fp);
+    return buf;
+}
+
+// 加载游戏
+bool savegame_load(struct GameContext *game, int slot) {
+    if (slot < 1 || slot > MAX_SAVE_SLOTS) {
+        LOGE("无效的存档槽位：%d", slot);
+        return false;
+    }
+    
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), SAVE_FILE, slot);
+    
+    char *json = read_file(filepath);
+    if (!json) {
+        LOGE("无法读取存档：%s", filepath);
+        return false;
+    }
+    
+    LOGI("从槽位 %d 加载游戏...", slot);
+    
+    game->day = json_get_int(json, "day");
+    game->game_time = json_get_int(json, "game_time");
+    json_get_str(json, "player_name", game->player_name, sizeof(game->player_name));
+    
+    char scene_id[64];
+    json_get_str(json, "current_scene", scene_id, sizeof(scene_id));
+    
+    game->player_status.health = json_get_int(json, "health");
+    game->player_status.max_health = json_get_int(json, "max_health");
+    game->player_status.mana = json_get_int(json, "mana");
+    game->player_status.max_mana = json_get_int(json, "max_mana");
+    game->player_status.strength = json_get_int(json, "strength");
+    game->player_status.agility = json_get_int(json, "agility");
+    game->player_status.intelligence = json_get_int(json, "intelligence");
+    game->player_status.level = json_get_int(json, "level");
+    game->player_status.exp = json_get_int(json, "exp");
+    
+    json_get_str(json, "hair", game->player_appearance.hair, sizeof(game->player_appearance.hair));
+    json_get_str(json, "eyes", game->player_appearance.eyes, sizeof(game->player_appearance.eyes));
+    json_get_str(json, "body", game->player_appearance.body, sizeof(game->player_appearance.body));
+    json_get_str(json, "clothes", game->player_appearance.clothes, sizeof(game->player_appearance.clothes));
+    json_get_str(json, "features", game->player_appearance.features, sizeof(game->player_appearance.features));
+    
+    game->inventory.gold = json_get_int(json, "gold");
+    
+    // 恢复场景指针
+    game->current_scene = NULL;
+    for (int i = 0; i < game->scene_count; i++) {
+        if (strcmp(game->scenes[i].id, scene_id) == 0) {
+            game->current_scene = &game->scenes[i];
+            break;
+        }
+    }
+    
+    free(json);
+    LOGI("✓ 读档成功：%s", filepath);
+    return true;
+}
+
+// 检查存档是否存在
+bool savegame_exists(int slot) {
+    if (slot < 1 || slot > MAX_SAVE_SLOTS) return false;
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), SAVE_FILE, slot);
+    struct stat st;
+    return stat(filepath, &st) == 0;
+}
+
+// 删除存档
+bool savegame_delete(int slot) {
+    if (slot < 1 || slot > MAX_SAVE_SLOTS) return false;
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), SAVE_FILE, slot);
+    if (remove(filepath) == 0) {
+        LOGI("✓ 已删除存档：%s", filepath);
+        return true;
+    }
+    LOGE("删除失败：%s", strerror(errno));
+    return false;
 }

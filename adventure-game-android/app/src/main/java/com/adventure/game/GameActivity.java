@@ -38,6 +38,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     private Button btnGift, btnTrade, btnInteract, btnSetNpc;
     private Button btnCreateNpc, btnRemoveNpc;
     private Button btnAsk;
+    private Button btnSave, btnLoad, btnSaves;
     
     // 目标选择
     private LinearLayout targetContainer;
@@ -139,6 +140,11 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         btnChat = findViewById(R.id.btnChat);
         btnAsk = findViewById(R.id.btnAsk);
         
+        // 存档系统按钮
+        btnSave = findViewById(R.id.btnSave);
+        btnLoad = findViewById(R.id.btnLoad);
+        btnSaves = findViewById(R.id.btnSaves);
+        
         outputText.setMovementMethod(new ScrollingMovementMethod());
         
         // 绑定点击事件
@@ -162,6 +168,9 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         btnRemoveNpc.setOnClickListener(this);
         btnChat.setOnClickListener(this);
         btnAsk.setOnClickListener(this);
+        btnSave.setOnClickListener(this);
+        btnLoad.setOnClickListener(this);
+        btnSaves.setOnClickListener(this);
         
         inputText.setOnEditorActionListener((v, actionId, event) -> {
             sendMessage();
@@ -316,6 +325,17 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         else if (id == R.id.btnAsk) {
             // AI 问答直接输入问题
             executeCommand("ask ");
+        }
+        else if (id == R.id.btnSave) {
+            inputText.setText("save 1");
+            sendMessage();
+        }
+        else if (id == R.id.btnLoad) {
+            inputText.setText("load 1");
+            sendMessage();
+        }
+        else if (id == R.id.btnSaves) {
+            executeCommand("saves");
         }
     }
     
