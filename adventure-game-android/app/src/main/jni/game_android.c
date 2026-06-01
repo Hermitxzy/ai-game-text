@@ -1533,8 +1533,9 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getNpcContext(
             }
             if (strlen(mem->type) > 0 && strcmp(mem->type, "talk") == 0) {
                 char mem_line[300];
+                // 简化记忆格式，避免 AI 模仿"说"字
                 snprintf(mem_line, sizeof(mem_line),
-                    "- 对话：%s 说\"%s\"\n",
+                    "[%s]: %s\n",
                     mem->speaker, mem->content);
                 { strncat(context, mem_line, sizeof(context) - strlen(context) - 1); }
             }
@@ -1592,7 +1593,7 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
         
         // 保存主角记忆（同样使用循环缓冲区）
         char player_mem[256];
-        snprintf(player_mem, sizeof(player_mem), "%s：%s", name, reply);
+        snprintf(player_mem, sizeof(player_mem), "%s", reply);  // 只保存 NPC 回复内容
         add_player_memory(player_mem, 0);
         
         LOGI("保存 NPC 对话记忆：%s (count=%d/%d)", name, npc->memory_count, 20);
