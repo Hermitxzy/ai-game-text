@@ -1500,13 +1500,20 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getNpcContext(
     else if (npc->relation >= 20) strcat(context, "(冷淡)\n");
     else strcat(context, "(敌对)\n");
     
-    // 记忆历史（最近 5 条）
+    // 记忆历史（最近 5 条，使用循环缓冲区正确索引）
     if (npc->memory_count > 0) {
         strcat(context, "\n【记忆】\n");
-        int start = npc->memory_count > 5 ? npc->memory_count - 5 : 0;
-        for (int i = start; i < npc->memory_count; i++) {
-            MemoryEntry *mem = &npc->memories[i];
-            if (strlen(mem->type) > 0 && strcmp(mem->type, "talk") == 0) {
+        // 计算实际起始索引（循环缓冲区）
+        int count = npc->memory_count;
+        int start = (count > 20 ? count - 5 : (count < 5 ? 0 : count - 5));
+        if (count > 20) {
+            // 缓冲区已满，使用模运算计算实际位置
+            start = (count - 5) % 20;
+        }
+        for (int i = 0; i < 5 && i < count; i++) {
+            int idx = (start + i) % 20;
+            MemoryEntry *mem = &npc->memories[idx];
+            if (mem->content[0] != '\0' && strlen(mem->type) > 0 && strcmp(mem->type, "talk") == 0) {
                 char mem_line[300];
                 snprintf(mem_line, sizeof(mem_line),
                     "- 对话：%s 说\"%s\"\n",
