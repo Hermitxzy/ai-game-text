@@ -20,9 +20,9 @@ public class ApiClient {
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setDoOutput(true);
             
-            // 使用 chat 格式，避免 prompt 被原样返回
+            // 使用 chat 格式，添加防重复参数
             String jsonBody = String.format(
-                "{\"prompt\":\"USER: %s\\nASSISTANT:\",\"n_predict\":%d,\"temperature\":0.7,\"stop\":[\"USER:\",\"\\n\\n\"],\"stream\":false}",
+                "{\"prompt\":\"USER: %s\\nASSISTANT:\",\"n_predict\":%d,\"temperature\":0.6,\"repeat_penalty\":1.2,\"top_k\":40,\"top_p\":0.9,\"stop\":[\"USER:\",\"ASSISTANT:\",\"\\n\\n\",\"玩家:\",\"NPC:\"],\"stream\":false}",
                 escapeJson(prompt),
                 maxTokens
             );
@@ -198,9 +198,10 @@ public class ApiClient {
             
             prompt.append("【NPC 回复】\n");
             
-            return generateResponse(prompt.toString(), 300);
+            // NPC 回复限制更短，防止重复循环
+            return generateResponse(prompt.toString(), 150);
         } catch (Exception e) {
-            return generateResponse(playerSay, 300);
+            return generateResponse(playerSay, 150);
         }
     }
 }
