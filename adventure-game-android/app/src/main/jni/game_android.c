@@ -183,12 +183,20 @@ static void add_npc_memory(NPC *npc, const char *content, int relation_change) {
     
     // 使用循环缓冲区：如果记忆已满，覆盖最旧的记忆
     int index = npc->memory_count % 20;
+    if (index < 0 || index >= 20) {
+        LOGE("add_npc_memory: 索引越界 index=%d", index);
+        return;
+    }
     MemoryEntry *entry = &npc->memories[index];
     
     strncpy(entry->content, content, 255);
     entry->content[255] = '\0';
     entry->timestamp = g_game.game_time + g_game.day * 24;
     entry->relation_change = relation_change;
+    strncpy(entry->type, "gift", sizeof(entry->type) - 1);
+    entry->type[sizeof(entry->type) - 1] = '\0';
+    strncpy(entry->speaker, "系统", sizeof(entry->speaker) - 1);
+    entry->speaker[sizeof(entry->speaker) - 1] = '\0';
     
     // 只在未满时增加计数
     if (npc->memory_count < 20) {
@@ -1336,8 +1344,10 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_cleanupGame(
     g_initialized = 0;
     g_game.running = 0;
     memset(&g_game.player_memory, 0, sizeof(PlayerMemory));
+    // 清理所有 NPC 的记忆数组（整个数组，不是只清理 memory_count 条）
     for (int i = 0; i < g_game.npc_count; i++) {
-        memset(&g_game.npcs[i].memories, 0, sizeof(MemoryEntry) * g_game.npcs[i].memory_count);
+        memset(&g_game.npcs[i].memories, 0, sizeof(g_game.npcs[i].memories));
+        g_game.npcs[i].memory_count = 0;
     }
 }
 
@@ -1503,17 +1513,25 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getNpcContext(
     // 记忆历史（最近 5 条，使用循环缓冲区正确索引）
     if (npc->memory_count > 0) {
         strcat(context, "\n【记忆】\n");
-        // 计算实际起始索引（循环缓冲区）
+        // 循环缓冲区：实际有 min(5, memory_count) 条有效记录
         int count = npc->memory_count;
-        int start = (count > 20 ? count - 5 : (count < 5 ? 0 : count - 5));
-        if (count > 20) {
-            // 缓冲区已满，使用模运算计算实际位置
-            start = (count - 5) % 20;
+        int show_count = (count < 5) ? count : 5;
+        // 起始索引：当缓冲区满时 (count>=20)，从 (count-5)%20 开始
+        int start;
+        if (count >= 20) {
+            start = count % 20;  // 当前写入位置
+            start = (start - show_count + 20) % 20;  // 回退 5 个位置
+        } else {
+            start = 0;  // 未满时从 0 开始
         }
-        for (int i = 0; i < 5 && i < count; i++) {
+        for (int i = 0; i < show_count; i++) {
             int idx = (start + i) % 20;
             MemoryEntry *mem = &npc->memories[idx];
-            if (mem->content[0] != '\0' && strlen(mem->type) > 0 && strcmp(mem->type, "talk") == 0) {
+            // 安全检查：确保内容有效
+            if (mem == NULL || mem->content[0] == '\0') {
+                continue;
+            }
+            if (strlen(mem->type) > 0 && strcmp(mem->type, "talk") == 0) {
                 char mem_line[300];
                 snprintf(mem_line, sizeof(mem_line),
                     "- 对话：%s 说\"%s\"\n",
@@ -1551,19 +1569,25 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
     if (npc != NULL) {
         // 使用循环缓冲区：如果记忆已满，覆盖最旧的记忆
         int index = npc->memory_count % 20;
-        MemoryEntry *mem = &npc->memories[index];
-        
-        snprintf(mem->content, sizeof(mem->content), "%s", reply);
-        strncpy(mem->speaker, "玩家", sizeof(mem->speaker) - 1);
-        mem->speaker[sizeof(mem->speaker) - 1] = '\0';
-        strncpy(mem->type, "talk", sizeof(mem->type) - 1);
-        mem->type[sizeof(mem->type) - 1] = '\0';
-        mem->timestamp = g_game.game_time + g_game.day * 24;
-        mem->relation_change = 0;
-        
-        // 只在未满时增加计数
-        if (npc->memory_count < 20) {
-            npc->memory_count++;
+        if (index >= 0 && index < 20) {
+            MemoryEntry *mem = &npc->memories[index];
+            
+            snprintf(mem->content, sizeof(mem->content), "%s", reply);
+            strncpy(mem->speaker, "玩家", sizeof(mem->speaker) - 1);
+            mem->speaker[sizeof(mem->speaker) - 1] = '\0';
+            strncpy(mem->type, "talk", sizeof(mem->type) - 1);
+            mem->type[sizeof(mem->type) - 1] = '\0';
+            mem->timestamp = g_game.game_time + g_game.day * 24;
+            mem->relation_change = 0;
+            
+            // 只在未满时增加计数
+            if (npc->memory_count < 20) {
+                npc->memory_count++;
+            }
+            
+            LOGI("保存 NPC 对话记忆：%s (count=%d/%d)", name, npc->memory_count, 20);
+        } else {
+            LOGE("saveNpcTalk: 索引越界 index=%d", index);
         }
         
         // 保存主角记忆（同样使用循环缓冲区）
