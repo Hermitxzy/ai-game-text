@@ -20,9 +20,9 @@ public class ApiClient {
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setDoOutput(true);
             
-            // 使用 chat 格式，优化参数平衡自然度和防重复
+            // 优化参数：平衡自然度和防重复
             String jsonBody = String.format(
-                "{\"prompt\":\"USER: %s\\nASSISTANT:\",\"n_predict\":%d,\"temperature\":0.75,\"repeat_penalty\":1.15,\"top_k\":50,\"top_p\":0.92,\"stop\":[\"USER:\",\"ASSISTANT:\",\"\\n\\n\",\"玩家:\",\"NPC:\",\"【\"],\"stream\":false}",
+                "{\"prompt\":\"USER: %s\\nASSISTANT:\",\"n_predict\":%d,\"temperature\":0.7,\"repeat_penalty\":1.1,\"top_k\":50,\"top_p\":0.95,\"stop\":[\"USER:\",\"ASSISTANT:\",\"\\n\\n\",\"玩家:\",\"NPC:\",\"【\",\"指令\"],\"stream\":false}",
                 escapeJson(prompt),
                 maxTokens
             );
@@ -167,55 +167,26 @@ public class ApiClient {
         try {
             StringBuilder prompt = new StringBuilder();
             
-            // 系统指令（强调第一人称和人设）
-            prompt.append("【系统指令】\n");
-            prompt.append("你正在扮演一个 RPG 游戏中的 NPC。请严格遵守以下规则：\n");
-            prompt.append("1. 永远使用第一人称（我）回复，不要用'村长'、'铁匠'等第三人称\n");
-            prompt.append("2. 像真人一样自然对话，不要重复对方的话\n");
-            prompt.append("3. 回复要有 NPC 的个性和情感\n\n");
+            // 系统指令（简洁明确）
+            prompt.append("【指令】\n");
+            prompt.append("你是 RPG 游戏中的 NPC。用第一人称'我'回复，自然口语化，2-3 句话。\n");
+            prompt.append("不要重复之前的话，根据玩家当前输入回复。\n\n");
             
             // NPC 设定
-            prompt.append("【你的角色】\n");
+            prompt.append("【角色】\n");
             prompt.append(npcContext);
             prompt.append("\n\n");
             
-            // 对话历史
-            if (conversationHistory != null && conversationHistory.length() > 0) {
-                prompt.append("【之前的对话】\n");
-                prompt.append(conversationHistory);
-                prompt.append("\n");
-            }
-            
-            // 玩家输入
-            prompt.append("【玩家说】\n");
+            // 玩家输入（不显示历史对话，避免循环）
+            prompt.append("【玩家】\n");
             prompt.append(playerSay);
             prompt.append("\n\n");
             
-            // 回复格式示例（Few-shot）
-            prompt.append("【正确示例】\n");
-            prompt.append("玩家：你好\n");
-            prompt.append("你：'你好，旅人。我是这个村的村长，有什么可以帮你的吗？'（微笑）\n\n");
-            prompt.append("玩家：你是谁\n");
-            prompt.append("你：'我叫老约翰，在这个村子住了 40 年啦。'\n\n");
-            prompt.append("【错误示例】\n");
-            prompt.append("❌ 村长对旅人表示欢迎\n");
-            prompt.append("❌ 村长说道：你好\n");
-            prompt.append("❌ 玩家说：你好 → 村长说：你好\n\n");
+            prompt.append("【回复】\n");
             
-            // 回复要求
-            prompt.append("【回复要求】\n");
-            prompt.append("1. 用'我'而不是'村长'自称\n");
-            prompt.append("2. 回复自然口语化（2-3 句话）\n");
-            prompt.append("3. 可以加 (动作描写) 增强代入感\n");
-            prompt.append("4. 不要复述玩家的话\n");
-            prompt.append("5. 使用中文\n\n");
-            
-            prompt.append("【你的回复】\n");
-            
-            // 提高 temperature 增加自然度，但保留防重复
-            return generateResponse(prompt.toString(), 150);
+            return generateResponse(prompt.toString(), 120);
         } catch (Exception e) {
-            return generateResponse(playerSay, 150);
+            return generateResponse(playerSay, 120);
         }
     }
 }

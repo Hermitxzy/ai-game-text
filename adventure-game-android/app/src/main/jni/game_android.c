@@ -189,14 +189,14 @@ static void add_npc_memory(NPC *npc, const char *content, int relation_change) {
     }
     MemoryEntry *entry = &npc->memories[index];
     
-    strncpy(entry->content, content, 255);
-    entry->content[255] = '\0';
-    entry->timestamp = g_game.game_time + g_game.day * 24;
-    entry->relation_change = relation_change;
+    // 只保存事件类型，不保存详细内容（防止 AI 循环）
+    snprintf(entry->content, sizeof(entry->content), "%s", "互动");
     strncpy(entry->type, "gift", sizeof(entry->type) - 1);
     entry->type[sizeof(entry->type) - 1] = '\0';
     strncpy(entry->speaker, "系统", sizeof(entry->speaker) - 1);
     entry->speaker[sizeof(entry->speaker) - 1] = '\0';
+    entry->timestamp = g_game.game_time + g_game.day * 24;
+    entry->relation_change = relation_change;
     
     // 只在未满时增加计数
     if (npc->memory_count < 20) {
@@ -1533,10 +1533,10 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getNpcContext(
             }
             if (strlen(mem->type) > 0 && strcmp(mem->type, "talk") == 0) {
                 char mem_line[300];
-                // 简化记忆格式，避免 AI 模仿"说"字
+                // 简洁格式：不显示说话者，避免 AI 模仿
                 snprintf(mem_line, sizeof(mem_line),
-                    "[%s]: %s\n",
-                    mem->speaker, mem->content);
+                    "- %s\n",
+                    mem->content);
                 { strncat(context, mem_line, sizeof(context) - strlen(context) - 1); }
             }
         }
@@ -1573,8 +1573,9 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
         if (index >= 0 && index < 20) {
             MemoryEntry *mem = &npc->memories[index];
             
-            snprintf(mem->content, sizeof(mem->content), "%s", reply);
-            strncpy(mem->speaker, "玩家", sizeof(mem->speaker) - 1);
+            // 只保存对话摘要，不保存完整回复（防止 AI 模仿自己）
+            snprintf(mem->content, sizeof(mem->content), "与玩家交谈");
+            strncpy(mem->speaker, "系统", sizeof(mem->speaker) - 1);
             mem->speaker[sizeof(mem->speaker) - 1] = '\0';
             strncpy(mem->type, "talk", sizeof(mem->type) - 1);
             mem->type[sizeof(mem->type) - 1] = '\0';
@@ -1591,9 +1592,9 @@ JNIEXPORT void JNICALL Java_com_adventure_game_GameActivity_saveNpcTalk(
             LOGE("saveNpcTalk: 索引越界 index=%d", index);
         }
         
-        // 保存主角记忆（同样使用循环缓冲区）
+        // 保存主角记忆（同样只保存摘要）
         char player_mem[256];
-        snprintf(player_mem, sizeof(player_mem), "%s", reply);  // 只保存 NPC 回复内容
+        snprintf(player_mem, sizeof(player_mem), "与%s交谈", name);
         add_player_memory(player_mem, 0);
         
         LOGI("保存 NPC 对话记忆：%s (count=%d/%d)", name, npc->memory_count, 20);
