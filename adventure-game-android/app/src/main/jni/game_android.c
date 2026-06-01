@@ -1536,7 +1536,7 @@ JNIEXPORT jstring JNICALL Java_com_adventure_game_GameActivity_getNpcContext(
                 snprintf(mem_line, sizeof(mem_line),
                     "- 对话：%s 说\"%s\"\n",
                     mem->speaker, mem->content);
-                strcat(context, mem_line);
+                { strncat(context, mem_line, sizeof(context) - strlen(context) - 1); }
             }
         }
     }

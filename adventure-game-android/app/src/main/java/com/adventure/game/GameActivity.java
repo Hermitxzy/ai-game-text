@@ -444,7 +444,15 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     }
     
     // 处理 NPC 对话（带 AI）
+    private volatile boolean isProcessingNpcTalk = false;
+    
     private void handleNpcTalk(String npcName, String playerSay) {
+        // 防止重复点击导致多次请求
+        if (isProcessingNpcTalk) {
+            return;
+        }
+        isProcessingNpcTalk = true;
+        
         new Thread(() -> {
             try {
                 // 获取 NPC 上下文
@@ -459,6 +467,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
                 
                 final String finalResponse = response;
                 runOnUiThread(() -> {
+                    isProcessingNpcTalk = false;
                     if (finalResponse != null && !finalResponse.isEmpty()) {
                         onGameOutput("\n" + npcName + "：" + finalResponse);
                         // 保存对话记录
@@ -469,6 +478,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    isProcessingNpcTalk = false;
                     onGameOutput("\n" + npcName + "：（似乎没听清）");
                 });
             }
